@@ -33,6 +33,7 @@ defmodule BookmarkServer.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:bcrypt_elixir, "~> 2.0"},
       {:phoenix, "~> 1.5.8"},
       {:phoenix_ecto, "~> 4.1"},
       {:ecto_sql, "~> 3.4"},
@@ -45,7 +46,8 @@ defmodule BookmarkServer.MixProject do
       {:telemetry_metrics, "~> 0.4"},
       {:telemetry_poller, "~> 0.4"},
       {:jason, "~> 1.0"},
-      {:plug_cowboy, "~> 2.0"}
+      {:plug_cowboy, "~> 2.0"},
+      {:phx_gen_auth, "~> 0.7", only: [:dev], runtime: false},
     ]
   end
 
