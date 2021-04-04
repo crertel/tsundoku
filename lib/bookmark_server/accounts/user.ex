@@ -1,5 +1,5 @@
 defmodule BookmarkServer.Accounts.User do
-  use Ecto.Schema
+  use BookmarkServer.Schema
   import Ecto.Changeset
 
   @derive {Inspect, except: [:password]}
