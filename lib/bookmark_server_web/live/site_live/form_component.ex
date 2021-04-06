@@ -4,13 +4,21 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
   alias BookmarkServer.Bookmarks
 
   @impl true
+  def mount(socket) do
+    {:ok,
+    socket
+    |> assign(:available_tags, list_tags())}
+  end
+
+  @impl true
   def update(%{site: site} = assigns, socket) do
     changeset = Bookmarks.change_site(site)
 
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:tags, list_tags())
+     |> assign(:active_tags, BookmarkServer.Repo.preload(site,:tags).tags)
+     |> assign(:site, site)
      |> assign(:changeset, changeset)}
   end
 

@@ -7,16 +7,25 @@
   phx_submit: "save" %>
 
   <%= label f, :url %>
-  <%= text_input f, :url %>
+  <%= text_input f, :url%>
   <%= error_tag f, :url %>
 
   <%= label f, :tag, list: "tag_list" %>
-  <%= text_input f, :tag, list: "tag_list", multiple: true%>
+  <%= text_input f, :tag, list: "tag_list"%>
   <datalist id="tag_list">
-    <%= for tag <- @tags do %>
+    <%= for tag <- @available_tags do %>
       <option value="<%= tag.name%>">
     <% end %>
   </datalist>
+
+  <h2>available tags </h2>
+  <%= inspect @available_tags %>
+  <br>
+  <h2>active tags </h2>
+  <%= inspect @active_tags %>
+  <br>
+  <h2> site</h2>
+  <%= inspect @site %>
 
   <%= submit "Save", phx_disable_with: "Saving..." %>
 </form>

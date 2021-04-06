@@ -1,6 +1,5 @@
 defmodule BookmarkServerWeb.SiteLive.Show do
   use BookmarkServerWeb, :live_view
-
   alias BookmarkServer.Bookmarks
 
   @impl true

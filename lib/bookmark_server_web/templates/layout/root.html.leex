@@ -12,13 +12,20 @@
   <body class="w-full">
     <header>
       <section>
-        <nav role="navigation" class="bg-gray-500 p-4 w-full grid grid-cols-3">
+        <nav role="navigation" class="bg-gray-500 p-4 w-full flex justify-between">
+          <div class="flex flex-row flex-">
             <%= if function_exported?(Routes, :live_dashboard_path, 2) do %>
-              <div>
-              <%= link "LiveDashboard", to: Routes.live_dashboard_path(@conn, :home) %>
+              <div class="mx-4">
+                <%= link "LiveDashboard", to: Routes.live_dashboard_path(@conn, :home) %>
               </div>
             <% end %>
-            <div></div>
+            <div class="mx-4">
+              <%= link "Tags", to: Routes.tag_index_path(@conn, :index) %>
+            </div>
+            <div class="mx-4">
+              <%= link "Sites", to: Routes.site_index_path(@conn, :index) %>
+            </div>
+          </div>
           <%= render "_user_menu.html", assigns %>
         </nav>
       </section>
