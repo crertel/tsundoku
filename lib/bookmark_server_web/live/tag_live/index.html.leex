@@ -1,0 +1,41 @@
+<div class="p-4">
+  <div class="flex justify-between">
+    <div><h1 class="text-lg  border-b-2 border-black">Listing Tags</h1></div>
+    <div>
+      <div class="bg-blue-300 hover:text-blue-500 w-40 text-center rounded-xl m-2">
+        <%= live_patch "Create New Tag", to: Routes.tag_index_path(@socket, :new) %>
+      </div>
+    </div>
+  </div>
+
+
+  <%= if @live_action in [:new, :edit] do %>
+    <%= live_modal @socket, BookmarkServerWeb.TagLive.FormComponent,
+      id: @tag.id || :new,
+      title: @page_title,
+      action: @live_action,
+      tag: @tag,
+      return_to: Routes.tag_index_path(@socket, :index) %>
+  <% end %>
+
+  <div id="tags" class="p-2">
+    <%= if length(@tags) > 0 do %>
+      <%= for tag <- @tags do %>
+        <div id="tag-<%= tag.id %>" class="bg-gray-100 flex justify-between gap-4 m-2 p-2">
+          <div><%= tag.name %></div>
+
+          <div>
+            <div class="inline hover:text-blue-500"><%= live_redirect "Show", to: Routes.tag_show_path(@socket, :show, tag) %></div>
+            <div class="inline hover:text-blue-500"><%= live_patch "Edit", to: Routes.tag_index_path(@socket, :edit, tag) %></div>
+            <div class="inline hover:text-blue-500"><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: tag.id, data: [confirm: "Are you sure?"] %></div>
+          </div>
+        </div>
+      <% end %>
+    <% else %>
+      No tags defined.
+    <% end %>
+  </div>
+
+
+
+</div>

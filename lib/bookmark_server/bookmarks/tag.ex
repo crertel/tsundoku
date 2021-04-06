@@ -1,4 +1,4 @@
-defmodule BookmarkServer.Tag do
+defmodule BookmarkServer.Bookmarks.Tag do
   use BookmarkServer.Schema
   import Ecto.Changeset
 

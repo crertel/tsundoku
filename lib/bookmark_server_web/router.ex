@@ -65,6 +65,9 @@ defmodule BookmarkServerWeb.Router do
     get "/users/settings", UserSettingsController, :edit
     put "/users/settings", UserSettingsController, :update
     get "/users/settings/confirm_email/:token", UserSettingsController, :confirm_email
+
+
+
   end
 
   scope "/", BookmarkServerWeb do
@@ -74,5 +77,11 @@ defmodule BookmarkServerWeb.Router do
     get "/users/confirm", UserConfirmationController, :new
     post "/users/confirm", UserConfirmationController, :create
     get "/users/confirm/:token", UserConfirmationController, :confirm
+
+    live "/tags", TagLive.Index, :index
+    live "/tags/new", TagLive.Index, :new
+    live "/tags/:id/edit", TagLive.Index, :edit
+    live "/tags/:id", TagLive.Show, :show
+    live "/tags/:id/show/edit", TagLive.Show, :edit
   end
 end
