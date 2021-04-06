@@ -10,5 +10,13 @@
   <%= text_input f, :url %>
   <%= error_tag f, :url %>
 
+  <%= label f, :tag, list: "tag_list" %>
+  <%= text_input f, :tag, list: "tag_list", multiple: true%>
+  <datalist id="tag_list">
+    <%= for tag <- @tags do %>
+      <option value="<%= tag.name%>">
+    <% end %>
+  </datalist>
+
   <%= submit "Save", phx_disable_with: "Saving..." %>
 </form>

@@ -10,6 +10,7 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
     {:ok,
      socket
      |> assign(assigns)
+     |> assign(:tags, list_tags())
      |> assign(:changeset, changeset)}
   end
 
@@ -51,5 +52,9 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, changeset: changeset)}
     end
+  end
+
+  defp list_tags() do
+    Bookmarks.list_tags()
   end
 end
