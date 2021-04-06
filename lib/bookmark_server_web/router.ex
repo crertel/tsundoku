@@ -83,5 +83,11 @@ defmodule BookmarkServerWeb.Router do
     live "/tags/:id/edit", TagLive.Index, :edit
     live "/tags/:id", TagLive.Show, :show
     live "/tags/:id/show/edit", TagLive.Show, :edit
+
+    live "/sites", SiteLive.Index, :index
+    live "/sites/new", SiteLive.Index, :new
+    live "/sites/:id/edit", SiteLive.Index, :edit
+    live "/sites/:id", SiteLive.Show, :show
+    live "/sites/:id/show/edit", SiteLive.Show, :edit
   end
 end

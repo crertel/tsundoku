@@ -1,11 +1,14 @@
 defmodule BookmarkServer.Bookmarks.Tag do
   use BookmarkServer.Schema
   import Ecto.Changeset
+  alias BookmarkServer.Bookmarks.Site
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "tags" do
     field :name, :string
+
+    many_to_many :sites, Site,  join_through: "sites_tags"
 
     timestamps()
   end

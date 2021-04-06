@@ -8,7 +8,6 @@
     </div>
   </div>
 
-
   <%= if @live_action in [:new, :edit] do %>
     <%= live_modal @socket, BookmarkServerWeb.TagLive.FormComponent,
       id: @tag.id || :new,
