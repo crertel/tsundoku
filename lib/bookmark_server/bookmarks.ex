@@ -102,6 +102,10 @@ defmodule BookmarkServer.Bookmarks do
     Tag.changeset(tag, attrs)
   end
 
+  def get_tag_by_name(name) do
+    Repo.get_by(Tag, name: name)
+  end
+
   alias BookmarkServer.Bookmarks.Site
 
   @doc """

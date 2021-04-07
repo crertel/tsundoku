@@ -12,9 +12,11 @@
     <div class="text-right">
       <%= label f, :url, class: "font-extrabold" do %> URL <% end %>
     </div>
-    <div class="col-span-5">
-      <%= text_input f, :url, class: "border"%>
-      <%= error_tag f, :url %>
+    <div class="col-span-2">
+        <%= text_input f, :url, class: "border"%>
+    </div>
+    <div class="col-span-3 mt-4">
+        <%= error_tag f, :url %>
     </div>
   </div>
 
@@ -26,12 +28,21 @@
     </div>
     <div class="col-span-5">
       <%= if length(@active_tags) > 0 do%>
+        <div class="flex">
+        <%= for tag <- @active_tags do %>
+          <div class="m-1 p-1 px-2 bg-gray-400 rounded-full">
+            <div class="inline-block px-1 cursor-pointer bg-pink-300 rounded-full text-red-700" phx-value-tid="<%=tag.id%>" phx-click="remove_tag" phx-target="<%= @myself%>">
+              X
+            </div>
+            <%= tag.name %>
+          </div>
+        <% end %>
+        </div>
       <% else %>
         No tags.
       <% end %>
     </div>
   </div>
-
 
   <div class="m-4 grid grid-cols-6 gap-4">
     <div class="text-right">
@@ -40,13 +51,13 @@
       <% end %>
     </div>
     <div class="col-span-5 grid grid-cols-2">
-      <%= text_input f, :tag, list: "tag_list", class: "border"%>
-      <datalist id="tag_list">
+      <input value="<%= @new_tag%>" type="text" list="tag_list" phx-blur="create_tag_input" phx-keyup="create_tag_input" phx-target="<%= @myself %>" class="border">
+      <datalist id="tag_list" class="h-12 overflow-y-scroll">
         <%= for tag <- @available_tags do %>
           <option value="<%= tag.name%>">
         <% end %>
       </datalist>
-      <%= submit "+ Add tag", phx_disable_with: "Adding tag...", class: "bg-blue-300 p-2 rounded-xl"%>
+      <a href="#" class="bg-blue-300 p-2 rounded-xl" phx-click="add_tag" phx-target="<%= @myself %>"> + Add Tag </a>
     </div>
   </div>
 
