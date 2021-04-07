@@ -1,4 +1,6 @@
-<h2><%= @title %></h2>
+<div class="border-black border-b-2">
+  <h2 class="text-xl"><%= @title %></h2>
+</div>
 
 <%= f = form_for @changeset, "#",
   id: "site-form",
@@ -6,26 +8,49 @@
   phx_change: "validate",
   phx_submit: "save" %>
 
-  <%= label f, :url %>
-  <%= text_input f, :url%>
-  <%= error_tag f, :url %>
+  <div class="m-4 grid grid-cols-6 gap-4">
+    <div class="text-right">
+      <%= label f, :url, class: "font-extrabold" do %> URL <% end %>
+    </div>
+    <div class="col-span-5">
+      <%= text_input f, :url, class: "border"%>
+      <%= error_tag f, :url %>
+    </div>
+  </div>
 
-  <%= label f, :tag, list: "tag_list" %>
-  <%= text_input f, :tag, list: "tag_list"%>
-  <datalist id="tag_list">
-    <%= for tag <- @available_tags do %>
-      <option value="<%= tag.name%>">
-    <% end %>
-  </datalist>
+  <div class="m-4 grid grid-cols-6 gap-4">
+    <div class="text-right">
+      <div class="font-extrabold">
+        Tags
+      </div>
+    </div>
+    <div class="col-span-5">
+      <%= if length(@active_tags) > 0 do%>
+      <% else %>
+        No tags.
+      <% end %>
+    </div>
+  </div>
 
-  <h2>available tags </h2>
-  <%= inspect @available_tags %>
-  <br>
-  <h2>active tags </h2>
-  <%= inspect @active_tags %>
-  <br>
-  <h2> site</h2>
-  <%= inspect @site %>
 
-  <%= submit "Save", phx_disable_with: "Saving..." %>
+  <div class="m-4 grid grid-cols-6 gap-4">
+    <div class="text-right">
+      <%= label f, :tag, list: "tag_list", class: "font-extrabold" do %>
+        Add tag
+      <% end %>
+    </div>
+    <div class="col-span-5 grid grid-cols-2">
+      <%= text_input f, :tag, list: "tag_list", class: "border"%>
+      <datalist id="tag_list">
+        <%= for tag <- @available_tags do %>
+          <option value="<%= tag.name%>">
+        <% end %>
+      </datalist>
+      <%= submit "+ Add tag", phx_disable_with: "Adding tag...", class: "bg-blue-300 p-2 rounded-xl"%>
+    </div>
+  </div>
+
+  <div class="grid justify-end">
+    <%= submit "Save", phx_disable_with: "Saving...", class: "bg-blue-300 p-2 rounded-xl m-4"%>
+  </div>
 </form>
