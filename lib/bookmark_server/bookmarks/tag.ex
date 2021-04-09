@@ -8,7 +8,7 @@ defmodule BookmarkServer.Bookmarks.Tag do
   schema "tags" do
     field :name, :string
 
-    many_to_many :sites, Site,  join_through: "sites_tags"
+    many_to_many :sites, Site,  join_through: "sites_tags", on_replace: :delete
 
     timestamps()
   end

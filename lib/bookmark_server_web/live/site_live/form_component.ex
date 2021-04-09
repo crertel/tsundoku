@@ -14,12 +14,14 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
 
   @impl true
   def update(%{site: site} = assigns, socket) do
-    changeset = Bookmarks.change_site(site)
+    changeset = site
+                |> BookmarkServer.Repo.preload(:tags)
+                |> Bookmarks.change_site()
 
     {:ok,
      socket
      |> assign(assigns)
-     #|> assign(:active_tags, Ecto.Changeset.get_field(changeset, :tags)) #|> assign(:active_tags, BookmarkServer.Repo.preload(site,:tags).tags)
+     |> assign(:active_tags, BookmarkServer.Repo.preload(site,:tags).tags)
      |> assign(:site, site)
      |> assign(:changeset, changeset)}
   end
@@ -28,6 +30,7 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
   def handle_event("validate", %{"site" => site_params}, socket) do
     changeset =
       socket.assigns.site
+      |> BookmarkServer.Repo.preload(:tags)
       |> Bookmarks.change_site(site_params)
       |> Map.put(:action, :validate)
 
@@ -64,11 +67,13 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
   end
 
   def handle_event("save", %{"site" => site_params}, socket) do
-    save_site(socket, socket.assigns.action, site_params)
+    site_params_plus_tags = Map.put(site_params, "tags", socket.assigns.active_tags)
+    save_site(socket, socket.assigns.action, site_params_plus_tags)
   end
 
   defp save_site(socket, :edit, site_params) do
-    case Bookmarks.update_site(socket.assigns.site, site_params) do
+    preloaded_site = BookmarkServer.Repo.preload(socket.assigns.site, :tags)
+    case Bookmarks.update_site(preloaded_site, site_params) do
       {:ok, _site} ->
         {:noreply,
          socket

@@ -20,15 +20,27 @@
   <div id="tags" class="p-2">
     <%= if length(@sites) > 0 do %>
       <%= for site <- @sites do %>
-        <div id="tag-<%= site.id %>" class="bg-gray-100 flex justify-between gap-4 m-2 p-2">
-          <div>
-            <a href="<%= site.url %>" class="hover:text-blue-500" target="_blank"><%= site.url %></a>
-          </div>
-
-          <div>
+        <div id="tag-<%= site.id %>" class="bg-gray-100 grid grid-cols-12">
+          <div class="col-span-1">
             <div class="inline hover:text-blue-500"><%= live_redirect "Show", to: Routes.site_show_path(@socket, :show, site) %></div>
             <div class="inline hover:text-blue-500"><%= live_patch "Edit", to: Routes.site_index_path(@socket, :edit, site) %></div>
             <div class="inline hover:text-blue-500"><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: site.id, data: [confirm: "Are you sure?"] %></div>
+          </div>
+          <div class="col-span-11">
+            <div>
+              <a href="<%= site.url %>" class="hover:text-blue-500" target="_blank"><%= site.url %></a>
+            </div>
+            <div class="flex">
+              <%= if length(site.tags) > 0 do %>
+                <%= for tag <- site.tags do %>
+                  <div class="m-1 rounded-full bg-blue-200 p-1 px-2">
+                    <%= tag.name %>
+                  </div>
+                <% end %>
+              <% else %>
+                No tags assigned.
+              <% end %>
+            </div>
           </div>
         </div>
       <% end %>
