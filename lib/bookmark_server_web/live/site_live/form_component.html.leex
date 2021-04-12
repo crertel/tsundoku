@@ -12,11 +12,23 @@
     <div class="text-right">
       <%= label f, :url, class: "font-extrabold" do %> URL <% end %>
     </div>
-    <div class="col-span-2">
-        <%= text_input f, :url, class: "border"%>
+    <div class="col-span-4">
+        <%= text_input f, :url, class: "border w-full"%>
     </div>
-    <div class="col-span-3 mt-4">
+    <div class="col-span-1 mt-4">
         <%= error_tag f, :url %>
+    </div>
+  </div>
+
+  <div class="m-4 grid grid-cols-6 gap-4">
+    <div class="text-right">
+      <%= label f, :display_name, class: "font-extrabold" do %> Display name <% end %>
+    </div>
+    <div class="col-span-4">
+        <%= text_input f, :display_name, class: "border w-full"%>
+    </div>
+    <div class="col-span-1 mt-4">
+        <%= error_tag f, :display_name %>
     </div>
   </div>
 

@@ -6,7 +6,12 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :sites, list_sites())}
+    {:ok,
+    socket
+    |> assign(:sites, list_sites())
+    |> assign(:uploaded_files,[])
+    |> allow_upload(:bookmark_import, accept: ~w(.html), max_entries: 1, auto_upload: true, max_file_size: 32_000_000)
+    }
   end
 
   @impl true
@@ -38,6 +43,39 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     {:ok, _} = Bookmarks.delete_site(site)
 
     {:noreply, assign(socket, :sites, list_sites())}
+  end
+
+  @impl true
+  def handle_event("validate-upload", _params, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_event("upload-bookmark", _params, socket) do
+    consume_uploaded_entries(socket, :bookmark_import, fn %{path: path}, _entry ->
+      {:ok, urls} = BookmarkServer.Bookmarks.import_from_file(path)
+      cleaned_urls = Enum.map(urls, fn {"a", bm_tags, [bm_title]} ->
+        {"href", bm_url} = List.keyfind(bm_tags, "href", 0)
+        %{
+          url: bm_url,
+          display_name: bm_title,
+          inserted_at: DateTime.utc_now(),
+          updated_at: DateTime.utc_now(),
+        }
+      end)
+
+      Enum.chunk_every(cleaned_urls, 200)
+      |> Enum.each( fn(chunk) ->
+        Ecto.Multi.new()
+        |> Ecto.Multi.insert_all(:insert_all,
+            BookmarkServer.Bookmarks.Site,
+            chunk,
+            on_conflict: :nothing,
+            #conflict_target: [:url]
+            )
+        |> BookmarkServer.Repo.transaction()
+      end)
+
+    end)
+    {:noreply, socket}
   end
 
   defp list_sites do

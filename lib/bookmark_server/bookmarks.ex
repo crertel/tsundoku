@@ -202,4 +202,11 @@ defmodule BookmarkServer.Bookmarks do
     Site.changeset(site, attrs)
   end
 
+  def import_from_file(path) do
+    file = File.read!(path)
+    f = Floki.parse_document!(file)
+    urls = Floki.find(f, "a")
+    {:ok, urls}
+  end
+
 end

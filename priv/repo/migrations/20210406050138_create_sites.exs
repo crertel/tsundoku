@@ -4,7 +4,8 @@ defmodule BookmarkServer.Repo.Migrations.CreateSites do
   def change do
     create table(:sites, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :url, :string
+      add :url, :text
+      add :display_name, :text, default: ""
 
       timestamps()
     end

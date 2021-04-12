@@ -8,6 +8,23 @@
     </div>
   </div>
 
+  <div>
+    <%= for entry <- @uploads.bookmark_import.entries do %>
+    <div class="w-300">
+      <%= entry.client_name %> - <progress max="100" value="<%= entry.progress %>" />
+      </div>
+    <% end %>
+
+    <%= for {_ref, msg} <- @uploads.bookmark_import.errors do %>
+      <%= msg %>
+    <% end %>
+
+    <form id="import-bookmark-form" phx-submit="upload-bookmark" phx-change="validate-upload">
+      <%= live_file_input @uploads.bookmark_import %>
+      <%= submit "Import" %>
+    </form>
+  </div>
+
   <%= if @live_action in [:new, :edit] do %>
     <%= live_modal @socket, BookmarkServerWeb.SiteLive.FormComponent,
       id: @site.id || :new,
@@ -26,10 +43,18 @@
             <div class="inline hover:text-blue-500"><%= live_patch "Edit", to: Routes.site_index_path(@socket, :edit, site) %></div>
             <div class="inline hover:text-blue-500"><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: site.id, data: [confirm: "Are you sure?"] %></div>
           </div>
-          <div class="col-span-11">
+          <div class="col-span-5">
             <div>
-              <a href="<%= site.url %>" class="hover:text-blue-500" target="_blank"><%= site.url %></a>
+              <a href="<%= site.url %>" class="hover:text-blue-500" target="_blank">
+                <%= if site.display_name == "" do%>
+                  <%= site.url %>
+                <% else  %>
+                  <%= site.display_name %>
+                <% end %>
+              </a>
             </div>
+          </div>
+          <div class="col-span-6">
             <div class="flex">
               <%= if length(site.tags) > 0 do %>
                 <%= for tag <- site.tags do %>
