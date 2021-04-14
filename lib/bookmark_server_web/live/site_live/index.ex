@@ -50,9 +50,10 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
   @impl true
   def handle_event("upload-bookmark", _params, socket) do
-    consume_uploaded_entries(socket, :bookmark_import, fn %{path: path}, _entry ->
-      {:ok, urls} = BookmarkServer.Bookmarks.import_from_file(path)
-      cleaned_urls = Enum.map(urls, fn {"a", bm_tags, [bm_title]} ->
+    socket
+    |> consume_uploaded_entries(:bookmark_import, fn %{path: path}, _entry ->
+      {:ok, _tags, urls} = BookmarkServer.Bookmarks.import_from_file(path)
+      Enum.map(urls, fn {"a", bm_tags, [bm_title]} ->
         {"href", bm_url} = List.keyfind(bm_tags, "href", 0)
         %{
           url: bm_url,
@@ -61,20 +62,20 @@ defmodule BookmarkServerWeb.SiteLive.Index do
           updated_at: DateTime.utc_now(),
         }
       end)
-
-      Enum.chunk_every(cleaned_urls, 200)
+      |> Enum.chunk_every(200)
       |> Enum.each( fn(chunk) ->
         Ecto.Multi.new()
         |> Ecto.Multi.insert_all(:insert_all,
             BookmarkServer.Bookmarks.Site,
             chunk,
-            on_conflict: :nothing,
+            on_conflict: :nothing
             #conflict_target: [:url]
-            )
+        )
         |> BookmarkServer.Repo.transaction()
       end)
-
+      :ok
     end)
+
     {:noreply, socket}
   end
 
