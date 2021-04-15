@@ -52,7 +52,8 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   def handle_event("upload-bookmark", _params, socket) do
     socket
     |> consume_uploaded_entries(:bookmark_import, fn %{path: path}, _entry ->
-      {:ok, _tags, urls} = BookmarkServer.Bookmarks.import_from_file(path)
+      {:ok, tags, urls} = BookmarkServer.Bookmarks.import_from_file(path)
+      :ok = BookmarkServer.Bookmarks.load_urls(tags, urls)
       Enum.map(urls, fn {"a", bm_tags, [bm_title]} ->
         {"href", bm_url} = List.keyfind(bm_tags, "href", 0)
         %{

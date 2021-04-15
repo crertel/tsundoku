@@ -7,6 +7,7 @@ defmodule BookmarkServer.Bookmarks do
   alias BookmarkServer.Repo
 
   alias BookmarkServer.Bookmarks.Tag
+  alias BookmarkServer.Bookmarks.Site
 
   @doc """
   Returns the list of tags.
@@ -202,6 +203,49 @@ defmodule BookmarkServer.Bookmarks do
     Site.changeset(site, attrs)
   end
 
+  def load_urls(tags, urls) do
+    # preload tags into DB
+    :ok = tags |> Enum.each( fn( tag ) ->
+      try do
+        %Tag{}
+        |> Tag.changeset(%{"name" => tag})
+        |> BookmarkServer.Repo.insert!()
+      rescue
+        _ -> nil
+      end
+    end)
+
+    # load tags
+    #loaded_tags = Enum.reduce(tags, %{}, fn tag, loaded_tags ->
+    #  loaded_tag = BookmarkServer.Repo.get_by!(BookmarkServer.Bookmarks.Tag, name: tag)
+    #  loaded_tags |> Map.put("tag", loaded_tag)
+    #end)
+
+    loaded_tags = BookmarkServer.Repo.all(Tag)
+                  |> Enum.reduce(%{}, fn tag, loaded_tags ->
+                    Map.put(loaded_tags, tag.name, tag)
+                  end)
+
+    # load URLs into DB
+    :ok =  Enum.each(urls, fn {bm_tags, bm_url,bm_title} = bookmark ->
+      try do
+        IO.inspect(bookmark, label: "EXPECTED")
+        fetched_tags = Enum.map( bm_tags, &(loaded_tags[&1]))
+        IO.inspect(fetched_tags, label: "FETCHED")
+
+        %Site{}
+        |> BookmarkServer.Bookmarks.Site.changeset(%{
+          "url" => bm_url,
+          "display_name" => bm_title,
+          "tags" => fetched_tags
+          })
+        |> BookmarkServer.Repo.insert!()
+      rescue
+        _ ->nil
+      end
+    end)
+  end
+
   def import_from_file(path) do
     file = File.read!(path)
     clean_html = clean_html(file)
@@ -252,35 +296,6 @@ defmodule BookmarkServer.Bookmarks do
           %{state | tags: [label | tags]}
     end)
     urls # goal here is to return a list of { [tag1, tag2, tag3...], url, label} tuples
-  end
-
-  def floki_get_children( {_,_, kids}), do: kids
-  def floki_get_children( _ ), do: []
-
-  def floki_get_children_of_type( {_,_, kids}, type) do
-    kids |> Enum.filter( fn
-      {^type, _attrs, _kids} -> true
-      _ -> false
-    end)
-  end
-  def floki_get_children_of_type( _, _type) do
-    []
-  end
-
-
-
-  def walk_floki_children( {_, _, _} = node, cb, 0) do
-    cb.(node)
-  end
-  def walk_floki_children( node, cb, 0) do
-    node
-  end
-  def walk_floki_children( {_, _, kids} = node, cb, depth) when depth > 0 do
-    [cb.(node) | Enum.map(kids, &(walk_floki_children(&1,cb,depth-1)))]
-  end
-
-  def import_subtree(subtree) do
-
   end
 
 end
