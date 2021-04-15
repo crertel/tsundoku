@@ -249,20 +249,17 @@ defmodule BookmarkServer.Bookmarks do
   def import_from_file(path) do
     file = File.read!(path)
     clean_html = clean_html(file)
-
     root_nodes = Floki.parse_document!(clean_html)
                  |> Enum.filter( fn
                     {"dl",_,_} -> true
                     _ -> false
                   end)
 
-    urls = List.last(root_nodes) |> parse_node([])
-
+    urls = root_nodes |> Enum.map( &parse_node(&1,[])) |> List.flatten
     tags = urls |> Enum.reduce(MapSet.new(), fn {tags, _url, _title}, tag_set ->
-      tags
-      |> MapSet.new()
+      MapSet.new(tags)
       |> MapSet.union(tag_set)
-    end )
+    end)
     {:ok, tags, urls}
   end
 
