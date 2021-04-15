@@ -5,11 +5,14 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
 
   @impl true
   def mount(socket) do
+    available_tags = if connected?(socket), do: Bookmarks.paginate_tags().entries, else: []
+    active_tags = []
+
     {:ok,
     socket
     |> assign(:new_tag, "")
-    |> assign(:available_tags, list_tags())
-    |> assign(:active_tags, [])}
+    |> assign(:available_tags, available_tags)
+    |> assign(:active_tags, active_tags)}
   end
 
   @impl true
@@ -18,10 +21,12 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
                 |> BookmarkServer.Repo.preload(:tags)
                 |> Bookmarks.change_site()
 
+    active_tags = BookmarkServer.Repo.preload(site,:tags).tags
+
     {:ok,
      socket
      |> assign(assigns)
-     |> assign(:active_tags, BookmarkServer.Repo.preload(site,:tags).tags)
+     |> assign(:active_tags, active_tags)
      |> assign(:site, site)
      |> assign(:changeset, changeset)}
   end

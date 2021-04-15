@@ -7,10 +7,15 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   @impl true
   def mount(_params, _session, socket) do
     {:ok,
-    socket
-    |> assign(:sites, list_sites())
-    |> assign(:uploaded_files,[])
-    |> allow_upload(:bookmark_import, accept: ~w(.html), max_entries: 1, auto_upload: true, max_file_size: 32_000_000)
+      socket
+      |> assign(
+        uploaded_files: [],
+        sites: [],
+        page_number: 0,
+        page_size: 0,
+        total_entries: 0,
+        total_pages: 0)
+      |> allow_upload(:bookmark_import, accept: ~w(.html), max_entries: 1, auto_upload: true, max_file_size: 32_000_000)
     }
   end
 
@@ -31,9 +36,11 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     |> assign(:site, %Site{})
   end
 
-  defp apply_action(socket, :index, _params) do
+  defp apply_action(socket, :index, params) do
+    assigns = get_and_assign_page( params["page"])
     socket
     |> assign(:page_title, "Listing Sites")
+    |> assign( assigns)
     |> assign(:site, nil)
   end
 
@@ -41,8 +48,14 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   def handle_event("delete", %{"id" => id}, socket) do
     site = Bookmarks.get_site!(id)
     {:ok, _} = Bookmarks.delete_site(site)
+    page = if connected?(socket), do: Bookmarks.paginate_sites(), else: %Scrivener.Page{}
 
-    {:noreply, assign(socket, :sites, list_sites())}
+    {:noreply, assign(socket,
+      sites: page.entries,
+      page_number: page.page_number || 0,
+      page_size: page.page_size || 0,
+      total_entries: page.total_entries || 0,
+      total_pages: page.total_pages || 0)}
   end
 
   @impl true
@@ -54,34 +67,40 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     |> consume_uploaded_entries(:bookmark_import, fn %{path: path}, _entry ->
       {:ok, tags, urls} = BookmarkServer.Bookmarks.import_from_file(path)
       :ok = BookmarkServer.Bookmarks.load_urls(tags, urls)
-      Enum.map(urls, fn {"a", bm_tags, [bm_title]} ->
-        {"href", bm_url} = List.keyfind(bm_tags, "href", 0)
-        %{
-          url: bm_url,
-          display_name: bm_title,
-          inserted_at: DateTime.utc_now(),
-          updated_at: DateTime.utc_now(),
-        }
-      end)
-      |> Enum.chunk_every(200)
-      |> Enum.each( fn(chunk) ->
-        Ecto.Multi.new()
-        |> Ecto.Multi.insert_all(:insert_all,
-            BookmarkServer.Bookmarks.Site,
-            chunk,
-            on_conflict: :nothing
-            #conflict_target: [:url]
-        )
-        |> BookmarkServer.Repo.transaction()
-      end)
       :ok
     end)
 
     {:noreply, socket}
   end
 
-  defp list_sites do
-    Bookmarks.list_sites()
-    |> BookmarkServer.Repo.preload(:tags)
+  @impl true
+  def handle_event("nav", %{"page" => page}, socket) do
+    {:noreply, push_redirect(socket, to: Routes.site_index_path(socket, :index, page: page))}
+  end
+
+  @spec get_and_assign_page(any) :: [
+          {:page_number, pos_integer}
+          | {:page_size, integer}
+          | {:products, list}
+          | {:total_entries, integer}
+          | {:total_pages, pos_integer},
+          ...
+        ]
+  def get_and_assign_page(page_number) do
+    %{
+      entries: entries,
+      page_number: page_number,
+      page_size: page_size,
+      total_entries: total_entries,
+      total_pages: total_pages
+    } = Bookmarks.paginate_sites(page: page_number)
+
+    [
+      sites: entries,
+      page_number: page_number,
+      page_size: page_size,
+      total_entries: total_entries,
+      total_pages: total_pages
+    ]
   end
 end

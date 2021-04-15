@@ -6,7 +6,13 @@ defmodule BookmarkServerWeb.TagLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, :tags, list_tags())}
+    page = if connected?(socket), do: Bookmarks.paginate_tags().entries, else: %Scrivener.Page{}
+
+    {:ok, assign(socket, tags: page.entries,
+    page_number: page.page_number || 0,
+    page_size: page.page_size || 0,
+    total_entries: page.total_entries || 0,
+    total_pages: page.total_pages || 0)}
   end
 
   @impl true

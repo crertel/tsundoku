@@ -22,6 +22,11 @@ defmodule BookmarkServer.Bookmarks do
     Repo.all(Tag)
   end
 
+  def paginate_tags(params \\ []) do
+    Tag
+    |> Repo.paginate(params)
+  end
+
   @doc """
   Gets a single tag.
 
@@ -120,6 +125,11 @@ defmodule BookmarkServer.Bookmarks do
   """
   def list_sites do
     Repo.all(Site)
+  end
+
+  def paginate_sites(params \\ []) do
+    q = from s in Site, preload: [:tags]
+    Repo.paginate(q, params)
   end
 
   @doc """
