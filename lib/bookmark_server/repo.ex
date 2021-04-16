@@ -3,5 +3,5 @@ defmodule BookmarkServer.Repo do
     otp_app: :bookmark_server,
     adapter: Ecto.Adapters.Postgres
 
-  use Scrivener, page_size: 30
+  use Scrivener, page_size: 200
 end

@@ -6,13 +6,11 @@ defmodule BookmarkServerWeb.TagLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    page = if connected?(socket), do: Bookmarks.paginate_tags().entries, else: %Scrivener.Page{}
-
-    {:ok, assign(socket, tags: page.entries,
-    page_number: page.page_number || 0,
-    page_size: page.page_size || 0,
-    total_entries: page.total_entries || 0,
-    total_pages: page.total_pages || 0)}
+    {:ok, assign(socket, tags: [],
+    page_number: 0,
+    page_size: 0,
+    total_entries: 0,
+    total_pages: 0)}
   end
 
   @impl true
@@ -32,8 +30,10 @@ defmodule BookmarkServerWeb.TagLive.Index do
     |> assign(:tag, %Tag{})
   end
 
-  defp apply_action(socket, :index, _params) do
+  defp apply_action(socket, :index, params) do
+    assigns = get_and_assign_page(params["page"])
     socket
+    |> assign(assigns)
     |> assign(:page_title, "Listing Tags")
     |> assign(:tag, nil)
   end
@@ -42,11 +42,31 @@ defmodule BookmarkServerWeb.TagLive.Index do
   def handle_event("delete", %{"id" => id}, socket) do
     tag = Bookmarks.get_tag!(id)
     {:ok, _} = Bookmarks.delete_tag(tag)
+    assigns = get_and_assign_page(socket.assigns.page_number)
 
-    {:noreply, assign(socket, :tags, list_tags())}
+    {:noreply, assign(socket, assigns)}
   end
 
-  defp list_tags do
-    Bookmarks.list_tags()
+  @impl true
+  def handle_event("nav", %{"page" => page}, socket) do
+    {:noreply, push_redirect(socket, to: Routes.tag_index_path(socket, :index, page: page))}
+  end
+
+  def get_and_assign_page(page_number) do
+    %{
+      entries: entries,
+      page_number: page_number,
+      page_size: page_size,
+      total_entries: total_entries,
+      total_pages: total_pages
+    } = Bookmarks.paginate_tags(page: page_number, page_size: 5)
+
+    [
+      tags: entries,
+      page_number: page_number,
+      page_size: page_size,
+      total_entries: total_entries,
+      total_pages: total_pages
+    ]
   end
 end

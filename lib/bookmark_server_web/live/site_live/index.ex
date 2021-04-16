@@ -48,14 +48,9 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   def handle_event("delete", %{"id" => id}, socket) do
     site = Bookmarks.get_site!(id)
     {:ok, _} = Bookmarks.delete_site(site)
-    page = if connected?(socket), do: Bookmarks.paginate_sites(), else: %Scrivener.Page{}
+    assigns = get_and_assign_page(socket.assigns.page_number)
 
-    {:noreply, assign(socket,
-      sites: page.entries,
-      page_number: page.page_number || 0,
-      page_size: page.page_size || 0,
-      total_entries: page.total_entries || 0,
-      total_pages: page.total_pages || 0)}
+    {:noreply, assign(socket, assigns)}
   end
 
   @impl true
@@ -93,7 +88,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       page_size: page_size,
       total_entries: total_entries,
       total_pages: total_pages
-    } = Bookmarks.paginate_sites(page: page_number)
+    } = Bookmarks.paginate_sites(page: page_number, page_size: 50)
 
     [
       sites: entries,
