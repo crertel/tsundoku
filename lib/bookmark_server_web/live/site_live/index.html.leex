@@ -1,12 +1,17 @@
 <div class="p-4">
-<div class="flex justify-between">
-    <div><h1 class="text-lg  border-b-2 border-black">Listing Sites</h1></div>
-    <div>
-      <div class="bg-blue-300 hover:text-blue-500 w-40 text-center rounded-xl m-2">
-        <%= live_patch "Create New Site", to: Routes.site_index_path(@socket, :new) %>
-      </div>
+<div class="grid grid-cols-12 items-baseline border-b-2 border-black">
+  <div class="col-span-2">
+    <h1 class="text-lg ">Listing Sites</h1>
+  </div>
+  <div class="col-span-8">
+    <input type="text" class="w-full"/>
+  </div>
+  <div class="col-span-2">
+    <div class="bg-blue-300 hover:text-blue-500 w-40 text-center rounded-xl m-2">
+      <%= live_patch "Create New Site", to: Routes.site_index_path(@socket, :new) %>
     </div>
   </div>
+</div>
 
   <div>
     <%= for entry <- @uploads.bookmark_import.entries do %>
