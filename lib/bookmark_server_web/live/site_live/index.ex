@@ -73,6 +73,11 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     {:noreply, push_redirect(socket, to: Routes.site_index_path(socket, :index, page: page))}
   end
 
+  @impl true
+  def handle_event("run_search", %{"query_field" => %{"query" => search}}, socket) do
+    {:noreply, socket}
+  end
+
   @spec get_and_assign_page(any) :: [
           {:page_number, pos_integer}
           | {:page_size, integer}
