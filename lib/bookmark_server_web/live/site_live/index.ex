@@ -13,6 +13,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
         sites: [],
         page_number: 0,
         page_size: 0,
+        search: "",
         total_entries: 0,
         total_pages: 0)
       |> allow_upload(:bookmark_import, accept: ~w(.html), max_entries: 1, auto_upload: true, max_file_size: 32_000_000)
@@ -37,10 +38,11 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
-    assigns = get_and_assign_page( params["page"])
+    assigns = get_and_assign_page( params["page"] || 1, params["search"] || "")
     socket
     |> assign(:page_title, "Listing Sites")
     |> assign( assigns)
+    |> assign( :search, params["search"] || "")
     |> assign(:site, nil)
   end
 
@@ -48,9 +50,11 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   def handle_event("delete", %{"id" => id}, socket) do
     site = Bookmarks.get_site!(id)
     {:ok, _} = Bookmarks.delete_site(site)
-    assigns = get_and_assign_page(socket.assigns.page_number)
+    assigns = get_and_assign_page(socket.assigns.page_number, socket.assigns.search)
 
-    {:noreply, assign(socket, assigns)}
+    {:noreply, socket
+                |> assign( assigns)
+    }
   end
 
   @impl true
@@ -70,37 +74,36 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
   @impl true
   def handle_event("nav", %{"page" => page}, socket) do
-    {:noreply, push_redirect(socket, to: Routes.site_index_path(socket, :index, page: page))}
+    {:noreply, push_redirect(socket, to: Routes.site_index_path(socket, :index, page: page, search: socket.assigns.search))}
   end
 
   @impl true
   def handle_event("run_search", %{"query_field" => %{"query" => search}}, socket) do
-    {:noreply, socket}
+    {:noreply, push_redirect(socket, to: Routes.site_index_path(socket, :index, page: socket.assigns.page_number, search: search))}
   end
 
-  @spec get_and_assign_page(any) :: [
-          {:page_number, pos_integer}
-          | {:page_size, integer}
-          | {:products, list}
-          | {:total_entries, integer}
-          | {:total_pages, pos_integer},
-          ...
-        ]
-  def get_and_assign_page(page_number) do
+  def get_and_assign_page(page_number, search) do
+    search_string = String.trim(search)
+
     %{
       entries: entries,
       page_number: page_number,
       page_size: page_size,
       total_entries: total_entries,
       total_pages: total_pages
-    } = Bookmarks.paginate_sites(page: page_number, page_size: 50)
+    } = if search_string == "" do
+    Bookmarks.paginate_sites(page: page_number, page_size: 50)
+    else
+       Bookmarks.search_and_paginate_sites(search_string, page: page_number, page_size: 50)
+    end
 
     [
       sites: entries,
       page_number: page_number,
       page_size: page_size,
       total_entries: total_entries,
-      total_pages: total_pages
+      total_pages: total_pages,
+      search: search_string
     ]
   end
 end

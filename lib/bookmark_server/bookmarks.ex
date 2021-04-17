@@ -132,6 +132,15 @@ defmodule BookmarkServer.Bookmarks do
     Repo.paginate(q, params)
   end
 
+  def search_and_paginate_sites( search_string, params \\ []) do
+    q_string = "%#{search_string}%"
+    q = from s in Site,
+        where: ilike(s.display_name, ^q_string),
+        preload: [:tags]
+
+    Repo.paginate(q, params)
+  end
+
   @doc """
   Gets a single site.
 
@@ -239,9 +248,7 @@ defmodule BookmarkServer.Bookmarks do
     # load URLs into DB
     :ok =  Enum.each(urls, fn {bm_tags, bm_url,bm_title} = bookmark ->
       try do
-        IO.inspect(bookmark, label: "EXPECTED")
         fetched_tags = Enum.map( bm_tags, &(loaded_tags[&1]))
-        IO.inspect(fetched_tags, label: "FETCHED")
 
         %Site{}
         |> BookmarkServer.Bookmarks.Site.changeset(%{
