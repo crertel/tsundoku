@@ -27,6 +27,14 @@ defmodule BookmarkServer.Bookmarks do
     |> Repo.paginate(params)
   end
 
+  def search_and_paginate_tags( search_string, params \\ [] ) do
+    q_string = "%#{search_string}%"
+    q = from t in Tag,
+        where: ilike(t.name, ^q_string)
+
+    Repo.paginate(q, params)
+  end
+
   @doc """
   Gets a single tag.
 

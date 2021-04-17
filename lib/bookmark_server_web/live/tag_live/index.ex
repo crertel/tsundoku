@@ -9,6 +9,7 @@ defmodule BookmarkServerWeb.TagLive.Index do
     {:ok, assign(socket, tags: [],
     page_number: 0,
     page_size: 0,
+    search: "",
     total_entries: 0,
     total_pages: 0)}
   end
@@ -31,7 +32,7 @@ defmodule BookmarkServerWeb.TagLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
-    assigns = get_and_assign_page(params["page"])
+    assigns = get_and_assign_page(params["page"], params["search"] || "")
     socket
     |> assign(assigns)
     |> assign(:page_title, "Listing Tags")
@@ -42,7 +43,7 @@ defmodule BookmarkServerWeb.TagLive.Index do
   def handle_event("delete", %{"id" => id}, socket) do
     tag = Bookmarks.get_tag!(id)
     {:ok, _} = Bookmarks.delete_tag(tag)
-    assigns = get_and_assign_page(socket.assigns.page_number)
+    assigns = get_and_assign_page(socket.assigns.page_number, socket.assigns.search)
 
     {:noreply, assign(socket, assigns)}
   end
@@ -52,21 +53,31 @@ defmodule BookmarkServerWeb.TagLive.Index do
     {:noreply, push_redirect(socket, to: Routes.tag_index_path(socket, :index, page: page))}
   end
 
-  def get_and_assign_page(page_number) do
+  def handle_event("run_search", %{"query_field" => %{"query" => search}}, socket) do
+    {:noreply, push_redirect(socket, to: Routes.tag_index_path(socket, :index, page: socket.assigns.page_number, search: search))}
+  end
+
+  def get_and_assign_page(page_number, search) do
+    clean_search = String.trim(search)
     %{
       entries: entries,
       page_number: page_number,
       page_size: page_size,
       total_entries: total_entries,
       total_pages: total_pages
-    } = Bookmarks.paginate_tags(page: page_number, page_size: 5)
+    } = if clean_search == "" do
+      Bookmarks.paginate_tags(page: page_number, page_size: 5)
+    else
+      Bookmarks.search_and_paginate_tags(clean_search, page: page_number, page_size: 5)
+    end
 
     [
       tags: entries,
       page_number: page_number,
       page_size: page_size,
       total_entries: total_entries,
-      total_pages: total_pages
+      total_pages: total_pages,
+      search: clean_search
     ]
   end
 end
