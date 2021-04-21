@@ -148,7 +148,7 @@ defmodule BookmarkServer.Bookmarks do
   }, params \\ []) do
 
     page_size = Keyword.get(params, :page_size)
-    {page_number, _} = Keyword.get(params, :page, "1") |> Integer.parse()
+    {page_number, _} = "#{Keyword.get(params, :page, "1")}" |> Integer.parse()
 
     tags_query = from t in Tag, order_by: t.name
 

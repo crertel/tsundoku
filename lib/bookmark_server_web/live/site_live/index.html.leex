@@ -14,9 +14,24 @@
           "phx-debounce": "500" , value: @search%>
     </form>
     </div>
-    <%= if length(@filtering_tags) > 0 do %>
+    <div>
       <small>Filtering tags</small>
       <div class="flex">
+        <div class="m-1 rounded-full bg-green-200 p-1 px-2">
+          <form phx-change="add_filter_tag">
+          <%= text_input :filter_tag,
+              :tag,
+              placeholder: "Add flitering tag",
+              class: "w-full",
+              list: "tag_list",
+              "phx-debounce": "500" , value: @search%>
+          <datalist id="tag_list" class="h-12 overflow-y-scroll">
+            <%= for tag <- @available_tags do %>
+              <option value="<%= tag%>">
+            <% end %>
+          </datalist>
+        </form>
+        </div>
 
         <%= for tag <- @filtering_tags do %>
           <div class="m-1 rounded-full bg-blue-200 p-1 px-2" phx-click="remove_filter_tag" phx-value-tag="<%= tag %>">
@@ -24,7 +39,7 @@
           </div>
         <% end %>
       </div>
-    <% end %>
+    </div>
   </div>
   <div class="col-span-2">
     <div class="bg-blue-300 hover:text-blue-500 w-40 text-center rounded-xl m-2">

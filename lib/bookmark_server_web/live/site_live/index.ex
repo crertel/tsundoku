@@ -11,10 +11,12 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       |> assign(
         uploaded_files: [],
         filtering_tags: [],
+        available_tags: [],
         sites: [],
         page_number: 0,
         page_size: 0,
         search: "",
+        tag_search: "",
         total_entries: 0,
         total_pages: 0)
       |> allow_upload(:bookmark_import, accept: ~w(.html), max_entries: 1, auto_upload: true, max_file_size: 32_000_000)
@@ -44,6 +46,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     |> assign(:page_title, "Listing Sites")
     |> assign( assigns)
     |> assign( :search, params["search"] || "")
+    |> assign( :available_tags, BookmarkServer.Bookmarks.list_tags() |> Enum.map(&(&1.name)))
     |> assign( :filtering_tags, params["tags"] || [])
     |> assign(:site, nil)
   end
@@ -92,6 +95,21 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       |> assign(page_number: 1)
       |> push_redirect(to: Routes.site_index_path(socket, :index, page: 1, search: socket.assigns.search, tags: new_tag_set))}
   end
+
+  @impl true
+  def handle_event("add_filter_tag", %{"filter_tag" => %{"tag"=>suggested_tag}}, socket) do
+    if not (suggested_tag in socket.assigns.available_tags) do
+      {:noreply, socket}
+    else
+      tag_set = MapSet.new(socket.assigns.filtering_tags)
+      new_tag_set = MapSet.put(tag_set, suggested_tag) |> MapSet.to_list()
+      IO.inspect(new_tag_set, label: ">>>>>>")
+      {:noreply, socket
+        |> assign(page_number: 1)
+        |> push_redirect(to: Routes.site_index_path(socket, :index, page: 1, search: socket.assigns.search, tags: new_tag_set))}
+    end
+  end
+
   @impl true
   def handle_event("remove_filter_tag", %{"tag"=> tag}, socket) do
     tag_set = MapSet.new(socket.assigns.filtering_tags)
