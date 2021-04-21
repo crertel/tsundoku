@@ -4,6 +4,7 @@
     <h1 class="text-lg ">Listing Sites</h1>
   </div>
   <div class="col-span-8">
+    <div>
     <form phx-change="run_search">
       <%= text_input :query_field,
           :query,
@@ -12,6 +13,18 @@
           class: "w-full",
           "phx-debounce": "500" , value: @search%>
     </form>
+    </div>
+    <%= if length(@filtering_tags) > 0 do %>
+      <small>Filtering tags</small>
+      <div class="flex">
+
+        <%= for tag <- @filtering_tags do %>
+          <div class="m-1 rounded-full bg-blue-200 p-1 px-2" phx-click="remove_filter_tag" phx-value-tag="<%= tag %>">
+            <%= tag %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
   </div>
   <div class="col-span-2">
     <div class="bg-blue-300 hover:text-blue-500 w-40 text-center rounded-xl m-2">
@@ -19,23 +32,6 @@
     </div>
   </div>
 </div>
-
-  <div>
-    <%= for entry <- @uploads.bookmark_import.entries do %>
-    <div class="w-300">
-      <%= entry.client_name %> - <progress max="100" value="<%= entry.progress %>" />
-      </div>
-    <% end %>
-
-    <%= for {_ref, msg} <- @uploads.bookmark_import.errors do %>
-      <%= msg %>
-    <% end %>
-
-    <form id="import-bookmark-form" phx-submit="upload-bookmark" phx-change="validate-upload">
-      <%= live_file_input @uploads.bookmark_import %>
-      <%= submit "Import" %>
-    </form>
-  </div>
 
   <%= if @live_action in [:new, :edit] do %>
     <%= live_modal @socket, BookmarkServerWeb.SiteLive.FormComponent,
@@ -50,7 +46,7 @@
     <%= if length(@sites) > 0 do %>
     <nav class="border-t border-gray-200 m-4">
         <ul class="flex my-2">
-          <li> <a class="px-2 py-2 <%= if @page_number <= 1, do: "pointer-events-none text-gray-600" %>" href="#" phx-click="nav" phx-value-page="<%= @page_number + 1 %>">Previous</a> </li>
+          <li> <a class="px-2 py-2 <%= if @page_number <= 1, do: "pointer-events-none text-gray-600" %>" href="#" phx-click="nav" phx-value-page="<%= @page_number - 1 %>">Previous</a> </li>
       <%= for idx <-  Enum.to_list(1..@total_pages) do %>
           <li > <a class="px-2 py-2 border-b-2 hover:border-blue-200<%= if @page_number == idx, do: "pointer-events-none text-gray-600 border-b-2 border-blue-400" %>" href="#" phx-click="nav" phx-value-page="<%= idx %>"><%= idx %></a> </li>
       <% end %>
@@ -79,7 +75,7 @@
             <div class="flex">
               <%= if length(site.tags) > 0 do %>
                 <%= for tag <- site.tags do %>
-                  <div class="m-1 rounded-full bg-blue-200 p-1 px-2">
+                  <div class="m-1 rounded-full bg-blue-200 p-1 px-2" phx-click="add_filter_tag" phx-value-tag="<%= tag.name %>">
                     <%= tag.name %>
                   </div>
                 <% end %>
@@ -93,5 +89,21 @@
     <% else %>
       No sites defined.
     <% end %>
+  </div>
+  <div>
+    <%= for entry <- @uploads.bookmark_import.entries do %>
+    <div class="w-300">
+      <%= entry.client_name %> - <progress max="100" value="<%= entry.progress %>" />
+      </div>
+    <% end %>
+
+    <%= for {_ref, msg} <- @uploads.bookmark_import.errors do %>
+      <%= msg %>
+    <% end %>
+
+    <form id="import-bookmark-form" phx-submit="upload-bookmark" phx-change="validate-upload">
+      <%= live_file_input @uploads.bookmark_import %>
+      <%= submit "Import" %>
+    </form>
   </div>
 </div>

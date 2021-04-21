@@ -10,6 +10,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       socket
       |> assign(
         uploaded_files: [],
+        filtering_tags: [],
         sites: [],
         page_number: 0,
         page_size: 0,
@@ -38,11 +39,12 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
-    assigns = get_and_assign_page( params["page"] || 1, params["search"] || "")
+    assigns = get_and_assign_page( params["page"] || 1, params["search"] || "", params["tags"] || [])
     socket
     |> assign(:page_title, "Listing Sites")
     |> assign( assigns)
     |> assign( :search, params["search"] || "")
+    |> assign( :filtering_tags, params["tags"] || [])
     |> assign(:site, nil)
   end
 
@@ -50,7 +52,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   def handle_event("delete", %{"id" => id}, socket) do
     site = Bookmarks.get_site!(id)
     {:ok, _} = Bookmarks.delete_site(site)
-    assigns = get_and_assign_page(socket.assigns.page_number, socket.assigns.search)
+    assigns = get_and_assign_page(socket.assigns.page_number, socket.assigns.search, socket.assigns.filtering_tags)
 
     {:noreply, socket
                 |> assign( assigns)
@@ -74,16 +76,38 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
   @impl true
   def handle_event("nav", %{"page" => page}, socket) do
-    {:noreply, push_redirect(socket, to: Routes.site_index_path(socket, :index, page: page, search: socket.assigns.search))}
+    {:noreply, push_redirect(socket, to: Routes.site_index_path(socket, :index, page: page, search: socket.assigns.search, tags: socket.assigns.filtering_tags))}
   end
 
   @impl true
   def handle_event("run_search", %{"query_field" => %{"query" => search}}, socket) do
-    {:noreply, push_redirect(socket, to: Routes.site_index_path(socket, :index, page: socket.assigns.page_number, search: search))}
+    {:noreply, push_redirect(socket, to: Routes.site_index_path(socket, :index, page: socket.assigns.page_number, search: search, tags: socket.assigns.filtering_tags))}
   end
 
-  def get_and_assign_page(page_number, search) do
+  @impl true
+  def handle_event("add_filter_tag", %{"tag"=> tag}, socket) do
+    tag_set = MapSet.new(socket.assigns.filtering_tags)
+    new_tag_set = MapSet.put(tag_set, tag) |> MapSet.to_list()
+    {:noreply, socket
+      |> assign(page_number: 1)
+      |> push_redirect(to: Routes.site_index_path(socket, :index, page: 1, search: socket.assigns.search, tags: new_tag_set))}
+  end
+  @impl true
+  def handle_event("remove_filter_tag", %{"tag"=> tag}, socket) do
+    tag_set = MapSet.new(socket.assigns.filtering_tags)
+    new_tag_set = MapSet.delete(tag_set, tag) |> MapSet.to_list()
+    {:noreply, socket
+    |> assign(page_number: 1)
+    |> push_redirect(to: Routes.site_index_path(socket, :index, page: 1, search: socket.assigns.search, tags: new_tag_set))}
+  end
+
+  def get_and_assign_page(page_number, search, filtering_tags) do
     search_string = String.trim(search)
+
+    query_params = %{
+      search_string: search_string,
+      filtering_tags: filtering_tags
+    }
 
     %{
       entries: entries,
@@ -91,11 +115,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       page_size: page_size,
       total_entries: total_entries,
       total_pages: total_pages
-    } = if search_string == "" do
-    Bookmarks.paginate_sites(page: page_number, page_size: 50)
-    else
-       Bookmarks.search_and_paginate_sites(search_string, page: page_number, page_size: 50)
-    end
+    } = Bookmarks.search_and_paginate_sites(query_params, page: page_number, page_size: 50)
 
     [
       sites: entries,

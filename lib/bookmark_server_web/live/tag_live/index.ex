@@ -58,18 +58,19 @@ defmodule BookmarkServerWeb.TagLive.Index do
   end
 
   def get_and_assign_page(page_number, search) do
-    clean_search = String.trim(search)
+    search_string = String.trim(search)
+
+    query_params = %{
+      search_string: search_string,
+    }
+
     %{
       entries: entries,
       page_number: page_number,
       page_size: page_size,
       total_entries: total_entries,
       total_pages: total_pages
-    } = if clean_search == "" do
-      Bookmarks.paginate_tags(page: page_number, page_size: 5)
-    else
-      Bookmarks.search_and_paginate_tags(clean_search, page: page_number, page_size: 5)
-    end
+    } =  Bookmarks.search_and_paginate_tags(query_params, page: page_number, page_size: 15)
 
     [
       tags: entries,
@@ -77,7 +78,7 @@ defmodule BookmarkServerWeb.TagLive.Index do
       page_size: page_size,
       total_entries: total_entries,
       total_pages: total_pages,
-      search: clean_search
+      search: search_string
     ]
   end
 end

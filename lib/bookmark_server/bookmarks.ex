@@ -27,7 +27,9 @@ defmodule BookmarkServer.Bookmarks do
     |> Repo.paginate(params)
   end
 
-  def search_and_paginate_tags( search_string, params \\ [] ) do
+  def search_and_paginate_tags( %{
+    search_string: search_string
+  }, params \\ [] ) do
     q_string = "%#{search_string}%"
     q = from t in Tag,
         where: ilike(t.name, ^q_string)
@@ -140,14 +142,46 @@ defmodule BookmarkServer.Bookmarks do
     Repo.paginate(q, params)
   end
 
-  def search_and_paginate_sites( search_string, params \\ []) do
-    q_string = "%#{search_string}%"
-    q = from s in Site,
-        where: ilike(s.display_name, ^q_string),
-        preload: [:tags]
+  def search_and_paginate_sites( %{
+    search_string: search_string,
+    filtering_tags: filtering_tags
+  }, params \\ []) do
 
-    Repo.paginate(q, params)
+    page_size = Keyword.get(params, :page_size)
+    {page_number, _} = Keyword.get(params, :page, "1") |> Integer.parse()
+
+    tags_query = from t in Tag, order_by: t.name
+
+    q_string = "%#{search_string}%"
+    site_query = from s in Site,
+        join: t in assoc(s, :tags),
+        where: ilike(s.display_name, ^q_string)
+
+    q = Enum.reduce(filtering_tags, site_query, fn(tag,full_query) ->
+      tag_query = from s in Site,
+        join: t in assoc(s, :tags),
+        where: ^tag == t.name
+      intersect(tag_query, ^full_query)
+    end)
+
+    final_query = q |> distinct(true)
+    offset = (page_number-1) * page_size
+    entry_count = Repo.all(final_query) |> Enum.count()
+    entries = final_query
+              |> preload([tags: ^tags_query])
+              |> offset( ^offset)
+              |> limit(^page_size)
+              |> Repo.all()
+
+    %Scrivener.Page{
+      page_size: page_size,
+      page_number: page_number,
+      entries: entries,
+      total_entries: entry_count,
+      total_pages: trunc(:math.ceil( entry_count / page_size))
+    }
   end
+
 
   @doc """
   Gets a single site.
@@ -242,19 +276,13 @@ defmodule BookmarkServer.Bookmarks do
       end
     end)
 
-    # load tags
-    #loaded_tags = Enum.reduce(tags, %{}, fn tag, loaded_tags ->
-    #  loaded_tag = BookmarkServer.Repo.get_by!(BookmarkServer.Bookmarks.Tag, name: tag)
-    #  loaded_tags |> Map.put("tag", loaded_tag)
-    #end)
-
     loaded_tags = BookmarkServer.Repo.all(Tag)
                   |> Enum.reduce(%{}, fn tag, loaded_tags ->
                     Map.put(loaded_tags, tag.name, tag)
                   end)
 
     # load URLs into DB
-    :ok =  Enum.each(urls, fn {bm_tags, bm_url,bm_title} = bookmark ->
+    :ok =  Enum.each(urls, fn {bm_tags, bm_url,bm_title} ->
       try do
         fetched_tags = Enum.map( bm_tags, &(loaded_tags[&1]))
 
