@@ -68,8 +68,9 @@
           <li> <a class="px-2 py-2 <%= if @page_number >= @total_pages, do: "pointer-events-none text-gray-600" %>" href="#" phx-click="nav" phx-value-page="<%= @page_number + 1 %>">Next</a> </li>
         </ul>
       </nav>
+      <div class="bg-white p-8">
       <%= for site <- @sites do %>
-        <div id="tag-<%= site.id %>" class="bg-gray-100 grid grid-cols-12">
+        <div id="tag-<%= site.id %>" class="bg-gray-100 hover:bg-gray-200 grid grid-cols-12">
           <div class="col-span-1 flex p-2 justify-evenly items-center">
             <div class="hover:text-blue-500">
               <%= live_redirect to: Routes.site_show_path(@socket, :show, site) do %>
@@ -111,6 +112,7 @@
           </div>
         </div>
       <% end %>
+      </div>
     <% else %>
       No sites defined.
     <% end %>

@@ -103,7 +103,6 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     else
       tag_set = MapSet.new(socket.assigns.filtering_tags)
       new_tag_set = MapSet.put(tag_set, suggested_tag) |> MapSet.to_list()
-      IO.inspect(new_tag_set, label: ">>>>>>")
       {:noreply, socket
         |> assign(page_number: 1)
         |> push_redirect(to: Routes.site_index_path(socket, :index, page: 1, search: socket.assigns.search, tags: new_tag_set))}
