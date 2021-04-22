@@ -29,7 +29,7 @@
     <%= if length(@tags) > 0 do %>
       <nav class="border-t border-gray-200 m-4">
         <ul class="flex my-2">
-          <li> <a class="px-2 py-2 <%= if @page_number <= 1, do: "pointer-events-none text-gray-600" %>" href="#" phx-click="nav" phx-value-page="<%= @page_number + 1 %>">Previous</a> </li>
+          <li> <a class="px-2 py-2 <%= if @page_number <= 1, do: "pointer-events-none text-gray-600" %>" href="#" phx-click="nav" phx-value-page="<%= @page_number - 1 %>">Previous</a> </li>
           <%= for idx <-  Enum.to_list(1..@total_pages) do %>
             <li > <a class="px-2 py-2 border-b-2 hover:border-blue-200<%= if @page_number == idx, do: "pointer-events-none text-gray-600 border-b-2 border-blue-400" %>" href="#" phx-click="nav" phx-value-page="<%= idx %>"><%= idx %></a> </li>
           <% end %>
