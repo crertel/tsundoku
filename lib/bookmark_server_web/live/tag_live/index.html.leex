@@ -37,13 +37,29 @@
         </ul>
       </nav>
       <%= for tag <- @tags do %>
-        <div id="tag-<%= tag.id %>" class="bg-gray-100 flex justify-between gap-4 m-2 p-2">
-          <div><%= tag.name %></div>
+        <div id="tag-<%= tag.id %>" class="bg-gray-100 grid grid-cols-12">
+          <div class="col-span-1 flex p-2 justify-evenly items-center">
+            <div class="hover:text-blue-500">
+              <%= live_redirect to: Routes.tag_show_path(@socket, :show, tag) do %>
+                <%= Heroicons.Solid.information_circle(class: "h-6 w-6") %>
+              <% end %>
+            </div>
+            <div class="hover:text-blue-500">
+              <%= live_patch to: Routes.tag_index_path(@socket, :edit, tag) do %>
+                <%= Heroicons.Solid.pencil(class: "h-6 w-6") %>
+              <% end %>
+            </div>
+            <div class="hover:text-blue-500">
+              <%= link to: "#", phx_click: "delete", phx_value_id: tag.id, data: [confirm: "Are you sure?"] do %>
+                <%= Heroicons.Solid.x(class: "h-6 w-6") %>
+              <% end %>
+            </div>
+          </div>
 
-          <div>
-            <div class="inline hover:text-blue-500"><%= live_redirect "Show", to: Routes.tag_show_path(@socket, :show, tag) %></div>
-            <div class="inline hover:text-blue-500"><%= live_patch "Edit", to: Routes.tag_index_path(@socket, :edit, tag) %></div>
-            <div class="inline hover:text-blue-500"><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: tag.id, data: [confirm: "Are you sure?"] %></div>
+          <div class="col-span-11 items-center flex">
+            <div>
+              <%= tag.name %>
+            </div>
           </div>
         </div>
       <% end %>

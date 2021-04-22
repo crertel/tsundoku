@@ -15,7 +15,7 @@
     </form>
     </div>
     <div>
-      <small>Filtering tags</small>
+      <small>Filtering tags (click to remove)</small>
       <div class="flex">
         <div class="m-1 rounded-full bg-green-200 p-1 px-2">
           <form phx-change="add_filter_tag">
@@ -34,7 +34,7 @@
         </div>
 
         <%= for tag <- @filtering_tags do %>
-          <div class="m-1 rounded-full bg-blue-200 p-1 px-2" phx-click="remove_filter_tag" phx-value-tag="<%= tag %>">
+          <div class="m-1 hover:text-blue-500 cursor-pointer rounded-full bg-blue-200 p-1 px-2" phx-click="remove_filter_tag" phx-value-tag="<%= tag %>">
             <%= tag %>
           </div>
         <% end %>
@@ -70,13 +70,24 @@
       </nav>
       <%= for site <- @sites do %>
         <div id="tag-<%= site.id %>" class="bg-gray-100 grid grid-cols-12">
-          <div class="col-span-1">
-            <div class="inline hover:text-blue-500"><%= live_redirect "Show", to: Routes.site_show_path(@socket, :show, site) %></div>
-            <div class="inline hover:text-blue-500"><%= live_patch "Edit", to: Routes.site_index_path(@socket, :edit, site) %></div>
-            <div class="inline hover:text-blue-500"><%= link "Delete", to: "#", phx_click: "delete", phx_value_id: site.id, data: [confirm: "Are you sure?"] %></div>
+          <div class="col-span-1 flex p-2 justify-evenly items-center">
+            <div class="hover:text-blue-500">
+              <%= live_redirect to: Routes.site_show_path(@socket, :show, site) do %>
+                <%= Heroicons.Solid.information_circle(class: "h-6 w-6") %>
+              <% end %>
+            </div>
+            <div class="hover:text-blue-500">
+              <%= live_patch to: Routes.site_index_path(@socket, :edit, site) do %>
+                <%= Heroicons.Solid.pencil(class: "h-6 w-6") %>
+              <% end %>
+            </div>
+            <div class="hover:text-blue-500">
+              <%= link to: "#", phx_click: "delete", phx_value_id: site.id, data: [confirm: "Are you sure?"] do %>
+                <%= Heroicons.Solid.x(class: "h-6 w-6") %>
+              <% end %>
+            </div>
           </div>
-          <div class="col-span-5">
-            <div>
+          <div class="col-span-5 items-center flex">
               <a href="<%= site.url %>" class="hover:text-blue-500" target="_blank">
                 <%= if site.display_name == "" do%>
                   <%= site.url %>
@@ -84,13 +95,12 @@
                   <%= site.display_name %>
                 <% end %>
               </a>
-            </div>
           </div>
           <div class="col-span-6">
-            <div class="flex">
+            <div class="flex items-center">
               <%= if length(site.tags) > 0 do %>
                 <%= for tag <- site.tags do %>
-                  <div class="m-1 rounded-full bg-blue-200 p-1 px-2" phx-click="add_filter_tag" phx-value-tag="<%= tag.name %>">
+                  <div class="m-1 hover:text-blue-500 cursor-pointer rounded-full bg-blue-200 p-1 px-2" phx-click="add_filter_tag" phx-value-tag="<%= tag.name %>">
                     <%= tag.name %>
                   </div>
                 <% end %>

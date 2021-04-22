@@ -32,7 +32,9 @@ defmodule BookmarkServer.Bookmarks do
   }, params \\ [] ) do
     q_string = "%#{search_string}%"
     q = from t in Tag,
-        where: ilike(t.name, ^q_string)
+        where: ilike(t.name, ^q_string),
+        order_by: [asc: t.name]
+
 
     Repo.paginate(q, params)
   end
