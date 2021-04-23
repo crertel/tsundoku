@@ -73,8 +73,10 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
   end
 
   def handle_event("save", %{"site" => site_params}, socket) do
-    site_params_plus_tags = Map.put(site_params, "tags", socket.assigns.active_tags)
-    save_site(socket, socket.assigns.action, site_params_plus_tags)
+    params = site_params
+             |> Map.put("tags", socket.assigns.active_tags)
+             |> Map.put("current_user", socket.assigns.current_user)
+    save_site(socket, socket.assigns.action, params)
   end
 
   defp save_site(socket, :edit, site_params) do
@@ -102,9 +104,5 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, changeset: changeset)}
     end
-  end
-
-  defp list_tags() do
-    Bookmarks.list_tags()
   end
 end

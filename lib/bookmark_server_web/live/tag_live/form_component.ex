@@ -24,7 +24,7 @@ defmodule BookmarkServerWeb.TagLive.FormComponent do
   end
 
   def handle_event("save", %{"tag" => tag_params}, socket) do
-    save_tag(socket, socket.assigns.action, tag_params)
+    save_tag(socket, socket.assigns.action, tag_params |> Map.put("created_by", socket.assigns.current_user))
   end
 
   defp save_tag(socket, :edit, tag_params) do
