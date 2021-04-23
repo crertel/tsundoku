@@ -42,7 +42,6 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
-    IO.inspect(socket.assigns.current_user, label: ">>>>>>>>>>.")
     assigns = get_and_assign_page( params["page"] || 1, params["search"] || "", params["tags"] || [])
     socket
     |> assign(:page_title, "Listing Sites")

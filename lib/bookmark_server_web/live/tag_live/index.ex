@@ -5,13 +5,15 @@ defmodule BookmarkServerWeb.TagLive.Index do
   alias BookmarkServer.Bookmarks.Tag
 
   @impl true
-  def mount(_params, _session, socket) do
-    {:ok, assign(socket, tags: [],
-    page_number: 0,
-    page_size: 0,
-    search: "",
-    total_entries: 0,
-    total_pages: 0)}
+  def mount(_params, %{"current_user" => current_user}, socket) do
+    {:ok, socket
+    |> assign_new( :current_user, fn -> current_user end)
+    |> assign(tags: [],
+      page_number: 0,
+      page_size: 0,
+      search: "",
+      total_entries: 0,
+      total_pages: 0)}
   end
 
   @impl true

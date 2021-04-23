@@ -3,8 +3,9 @@ defmodule BookmarkServerWeb.SiteLive.Show do
   alias BookmarkServer.Bookmarks
 
   @impl true
-  def mount(_params, _session, socket) do
-    {:ok, socket}
+  def mount(_params, %{"current_user" => current_user}, socket) do
+    {:ok, socket
+    |> assign_new( :current_user, fn -> current_user end)}
   end
 
   @impl true
