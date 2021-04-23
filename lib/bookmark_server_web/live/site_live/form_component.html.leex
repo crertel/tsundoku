@@ -72,6 +72,7 @@
       <a href="#" class="bg-blue-300 p-2 rounded-xl" phx-click="add_tag" phx-target="<%= @myself %>"> + Add Tag </a>
     </div>
   </div>
+  <%= inspect @current_user %>
 
   <div class="grid justify-end">
     <%= submit "Save", phx_disable_with: "Saving...", class: "bg-blue-300 p-2 rounded-xl m-4"%>

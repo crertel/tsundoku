@@ -1,8 +1,11 @@
+<%= inspect @current_user, pretty: true%>
 <div class="p-4">
 <div class="grid grid-cols-12 items-baseline border-b-2 border-black">
   <div class="col-span-2">
     <h1 class="text-lg ">Listing Sites</h1>
   </div>
+
+
   <div class="col-span-8">
     <div>
     <form phx-change="run_search">
@@ -53,6 +56,7 @@
       id: @site.id || :new,
       title: @page_title,
       action: @live_action,
+      current_user: @current_user,
       site: @site,
       return_to: Routes.site_index_path(@socket, :index) %>
   <% end %>

@@ -5,9 +5,10 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   alias BookmarkServer.Bookmarks.Site
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, %{"current_user" => current_user}, socket) do
     {:ok,
       socket
+      |> assign_new( :current_user, fn -> current_user end)
       |> assign(
         uploaded_files: [],
         filtering_tags: [],
@@ -41,6 +42,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
+    IO.inspect(socket.assigns.current_user, label: ">>>>>>>>>>.")
     assigns = get_and_assign_page( params["page"] || 1, params["search"] || "", params["tags"] || [])
     socket
     |> assign(:page_title, "Listing Sites")

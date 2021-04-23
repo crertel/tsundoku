@@ -44,6 +44,7 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
 
   def handle_event("add_tag", _,  socket) do
     new_tag = socket.assigns.new_tag |> String.trim()
+    current_user = socket.assigns.current_user
     if new_tag == "" do
       {:noreply, socket}
     else
@@ -51,7 +52,7 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
         %Bookmarks.Tag{} = tag ->
           socket.assigns.active_tags ++ [tag] |> Enum.uniq()
         nil ->
-          {:ok, tag} = Bookmarks.create_tag(%{"name" => new_tag})
+          {:ok, tag} = Bookmarks.create_tag(%{"name" => new_tag, "created_by" => current_user})
           socket.assigns.active_tags ++ [tag]
       end
 

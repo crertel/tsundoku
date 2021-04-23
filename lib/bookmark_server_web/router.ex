@@ -77,17 +77,21 @@ defmodule BookmarkServerWeb.Router do
     get "/users/confirm", UserConfirmationController, :new
     post "/users/confirm", UserConfirmationController, :create
     get "/users/confirm/:token", UserConfirmationController, :confirm
+  end
 
-    live "/tags", TagLive.Index, :index
-    live "/tags/new", TagLive.Index, :new
-    live "/tags/:id/edit", TagLive.Index, :edit
-    live "/tags/:id", TagLive.Show, :show
-    live "/tags/:id/show/edit", TagLive.Show, :edit
+  scope "/", BookmarkServerWeb do
+    pipe_through [:browser, :require_authenticated_user]
 
-    live "/sites", SiteLive.Index, :index
-    live "/sites/new", SiteLive.Index, :new
-    live "/sites/:id/edit", SiteLive.Index, :edit
-    live "/sites/:id", SiteLive.Show, :show
-    live "/sites/:id/show/edit", SiteLive.Show, :edit
+    live "/tags", TagLive.Index, :index, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/tags/new", TagLive.Index, :new, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/tags/:id/edit", TagLive.Index, :edit, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/tags/:id", TagLive.Show, :show, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/tags/:id/show/edit", TagLive.Show, :edit, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+
+    live "/sites", SiteLive.Index, :index, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/sites/new", SiteLive.Index, :new, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/sites/:id/edit", SiteLive.Index, :edit, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/sites/:id", SiteLive.Show, :show, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/sites/:id/show/edit", SiteLive.Show, :edit, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
   end
 end
