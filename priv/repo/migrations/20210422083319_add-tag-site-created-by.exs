@@ -3,14 +3,14 @@ defmodule :"Elixir.BookmarkServer.Repo.Migrations.Add-tag-site-created-by" do
 
   def change do
     alter table(:tags) do
-      add :created_by, references(:users, type: :uuid)
+      add :created_by_id, references(:users, type: :uuid)
     end
 
     alter table(:sites) do
-      add :created_by, references(:users, type: :uuid)
+      add :created_by_id, references(:users, type: :uuid)
     end
 
-    create(index(:sites, [:created_by]))
-    create(index(:tags, [:created_by]))
+    create(index(:sites, [:created_by_id]))
+    create(index(:tags, [:created_by_id]))
   end
 end
