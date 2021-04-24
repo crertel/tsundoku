@@ -9,8 +9,8 @@ defmodule BookmarkServerWeb.TagLive.Index do
     {:ok, socket
     |> assign_new( :current_user, fn -> current_user end)
     |> assign(tags: [],
-      page_number: 0,
-      page_size: 0,
+      page_number: 1,
+      page_size: 30,
       search: "",
       total_entries: 0,
       total_pages: 0)}

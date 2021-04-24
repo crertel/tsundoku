@@ -21,6 +21,7 @@
       id: @tag.id || :new,
       title: @page_title,
       action: @live_action,
+      current_user: @current_user,
       tag: @tag,
       return_to: Routes.tag_index_path(@socket, :index) %>
   <% end %>
