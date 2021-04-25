@@ -27,7 +27,14 @@ defmodule BookmarkServer.Bookmarks.Site do
     |> BookmarkServer.Repo.preload(:tags)
     |> cast(attrs, [:url, :display_name, :created_by_id])
     |> validate_required([:url])
+    |> validate_url(:url)
     |> put_assoc(:tags, Map.get(attrs, "tags", []))
 
+  end
+
+  def validate_url(changeset, field, options \\ [] ) do
+    validate_change( changeset, field, fn _, url ->
+      if ValidUrl.validate(url), do: [], else: [{field, options[:message] || "Invalid URL"}]
+    end)
   end
 end
