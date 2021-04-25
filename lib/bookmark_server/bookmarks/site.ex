@@ -23,13 +23,11 @@ defmodule BookmarkServer.Bookmarks.Site do
         }) :: Ecto.Changeset.t()
   @doc false
   def changeset(site, attrs) do
-    IO.inspect(attrs, label: ":::::::::::::::::")
     site
     |> BookmarkServer.Repo.preload(:tags)
-#    |> BookmarkServer.Repo.preload(:created_by)
     |> cast(attrs, [:url, :display_name, :created_by_id])
     |> validate_required([:url])
     |> put_assoc(:tags, Map.get(attrs, "tags", []))
-    #|> put_assoc(:created_by, Map.get(attrs, "created_by", nil))
+
   end
 end

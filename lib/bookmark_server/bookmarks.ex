@@ -28,11 +28,14 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   def search_and_paginate_tags( %{
-    search_string: search_string
+    search_string: search_string,
+    created_by: user_id
   }, params \\ [] ) do
+    IO.inspect(user_id, label: "USERID")
     q_string = "%#{search_string}%"
     q = from t in Tag,
         where: ilike(t.name, ^q_string),
+        where: ^user_id == t.created_by_id,
         order_by: [asc: t.name]
 
 
