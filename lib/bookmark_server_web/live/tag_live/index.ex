@@ -34,7 +34,7 @@ defmodule BookmarkServerWeb.TagLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
-    assigns = get_and_assign_page(params["page"], params["search"] || "")
+    assigns = get_and_assign_page(params["page"], params["search"] || "",socket.assigns.current_user.id)
     socket
     |> assign(assigns)
     |> assign(:page_title, "Listing Tags")
@@ -45,7 +45,9 @@ defmodule BookmarkServerWeb.TagLive.Index do
   def handle_event("delete", %{"id" => id}, socket) do
     tag = Bookmarks.get_tag!(id)
     {:ok, _} = Bookmarks.delete_tag(tag)
-    assigns = get_and_assign_page(socket.assigns.page_number, socket.assigns.search)
+    assigns = get_and_assign_page(socket.assigns.page_number,
+                                  socket.assigns.search,
+                                  socket.assigns.current_user.id)
 
     {:noreply, assign(socket, assigns)}
   end
@@ -59,11 +61,12 @@ defmodule BookmarkServerWeb.TagLive.Index do
     {:noreply, push_redirect(socket, to: Routes.tag_index_path(socket, :index, page: socket.assigns.page_number, search: search))}
   end
 
-  def get_and_assign_page(page_number, search) do
+  def get_and_assign_page(page_number, search, user_id) do
     search_string = String.trim(search)
 
     query_params = %{
       search_string: search_string,
+      created_by: user_id
     }
 
     %{

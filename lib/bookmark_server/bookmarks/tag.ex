@@ -19,9 +19,7 @@ defmodule BookmarkServer.Bookmarks.Tag do
   @doc false
   def changeset(tag, attrs) do
     tag
-    |> BookmarkServer.Repo.preload(:created_by)
-    |> cast(attrs, [:name])
+    |> cast(attrs, [:name, :created_by_id])
     |> validate_required([:name])
-    |> put_assoc(:created_by, Map.get(attrs, "created_by", []))
   end
 end

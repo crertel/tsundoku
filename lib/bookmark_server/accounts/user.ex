@@ -1,6 +1,7 @@
 defmodule BookmarkServer.Accounts.User do
   use BookmarkServer.Schema
   import Ecto.Changeset
+  alias BookmarkServer.Bookmarks.{Site,Tag}
 
   @derive {Inspect, except: [:password]}
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -10,6 +11,9 @@ defmodule BookmarkServer.Accounts.User do
     field :password, :string, virtual: true
     field :hashed_password, :string
     field :confirmed_at, :naive_datetime
+
+    has_many :sites, Site, foreign_key: :created_by_id, references: :id
+    has_many :tags, Tag, foreign_key: :created_by_id, references: :id
 
     timestamps()
   end

@@ -75,7 +75,7 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
   def handle_event("save", %{"site" => site_params}, socket) do
     params = site_params
              |> Map.put("tags", socket.assigns.active_tags)
-             |> Map.put("current_user", socket.assigns.current_user)
+             |> Map.put("created_by_id", socket.assigns.current_user.id)
     save_site(socket, socket.assigns.action, params)
   end
 

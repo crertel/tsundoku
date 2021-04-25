@@ -42,7 +42,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
-    assigns = get_and_assign_page( params["page"] || 1, params["search"] || "", params["tags"] || [])
+    assigns = get_and_assign_page( params["page"] || 1, params["search"] || "", params["tags"] || [], socket.assigns.current_user.id)
     socket
     |> assign(:page_title, "Listing Sites")
     |> assign( assigns)
@@ -56,7 +56,10 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   def handle_event("delete", %{"id" => id}, socket) do
     site = Bookmarks.get_site!(id)
     {:ok, _} = Bookmarks.delete_site(site)
-    assigns = get_and_assign_page(socket.assigns.page_number, socket.assigns.search, socket.assigns.filtering_tags)
+    assigns = get_and_assign_page(socket.assigns.page_number,
+                                  socket.assigns.search,
+                                  socket.assigns.filtering_tags,
+                                  socket.assigns.current_user.id)
 
     {:noreply, socket
                 |> assign( assigns)
@@ -119,12 +122,13 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     |> push_redirect(to: Routes.site_index_path(socket, :index, page: 1, search: socket.assigns.search, tags: new_tag_set))}
   end
 
-  def get_and_assign_page(page_number, search, filtering_tags) do
+  def get_and_assign_page(page_number, search, filtering_tags, user_id) do
     search_string = String.trim(search)
 
     query_params = %{
       search_string: search_string,
-      filtering_tags: filtering_tags
+      filtering_tags: filtering_tags,
+      created_by: user_id
     }
 
     %{

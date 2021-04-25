@@ -146,7 +146,8 @@ defmodule BookmarkServer.Bookmarks do
 
   def search_and_paginate_sites( %{
     search_string: search_string,
-    filtering_tags: filtering_tags
+    filtering_tags: filtering_tags,
+    created_by: created_by
   }, params \\ []) do
 
     page_size = Keyword.get(params, :page_size)
@@ -154,10 +155,12 @@ defmodule BookmarkServer.Bookmarks do
 
     tags_query = from t in Tag, order_by: t.name
 
+
     q_string = "%#{search_string}%"
     site_query = from s in Site,
-        join: t in assoc(s, :tags),
-        where: ilike(s.display_name, ^q_string)
+        left_join: t in assoc(s, :tags),
+        where: ilike(s.display_name, ^q_string),
+        where: s.created_by_id == ^created_by
 
     q = Enum.reduce(filtering_tags, site_query, fn(tag,full_query) ->
       tag_query = from s in Site,
