@@ -272,12 +272,12 @@ defmodule BookmarkServer.Bookmarks do
     Site.changeset(site, attrs)
   end
 
-  def load_urls(tags, urls) do
+  def load_urls(tags, urls, creator_id) do
     # preload tags into DB
     :ok = tags |> Enum.each( fn( tag ) ->
       try do
         %Tag{}
-        |> Tag.changeset(%{"name" => tag})
+        |> Tag.changeset(%{"name" => tag, "created_by_id" => creator_id})
         |> BookmarkServer.Repo.insert!()
       rescue
         _ -> nil
@@ -298,7 +298,8 @@ defmodule BookmarkServer.Bookmarks do
         |> BookmarkServer.Bookmarks.Site.changeset(%{
           "url" => bm_url,
           "display_name" => bm_title,
-          "tags" => fetched_tags
+          "tags" => fetched_tags,
+          "created_by_id" => creator_id
           })
         |> BookmarkServer.Repo.insert!()
       rescue

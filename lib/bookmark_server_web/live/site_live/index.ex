@@ -74,7 +74,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     socket
     |> consume_uploaded_entries(:bookmark_import, fn %{path: path}, _entry ->
       {:ok, tags, urls} = BookmarkServer.Bookmarks.import_from_file(path)
-      :ok = BookmarkServer.Bookmarks.load_urls(tags, urls)
+      :ok = BookmarkServer.Bookmarks.load_urls(tags, urls, socket.assigns.current_user.id)
       :ok
     end)
 
