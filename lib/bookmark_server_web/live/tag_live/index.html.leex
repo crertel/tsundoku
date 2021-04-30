@@ -1,21 +1,29 @@
 <div class="p-4">
-  <div class="flex justify-between">
-    <div><h1 class="text-lg  border-b-2 border-black">Listing Tags</h1></div>
-    <form phx-change="run_search">
-      <%= text_input :query_field,
-          :query,
-          placeholder: "Search bookmarked sites",
-          autofocus: true,
-          class: "w-full",
-          "phx-debounce": "500" , value: @search%>
-    </form>
-    <div>
+  <div class="grid grid-cols-12 items-baseline border-b-2 border-black">
+    <div class="col-span-2">
+      <h1 class="text-lg inline-block p-1">Listing Tags</h1>
+    </div>
+    <div class="col-span-8">
+      <div>
+        <form phx-change="run_search">
+          <%= text_input :query_field,
+              :query,
+              placeholder: "Search tags",
+              autofocus: true,
+              class: "w-full",
+              "phx-debounce": "500" , value: @search%>
+        </form>
+      </div>
+    </div>
+    <div class="col-span-2">
       <div class="bg-blue-300 hover:text-blue-500 w-40 text-center rounded-xl m-2">
         <%= live_patch "Create New Tag", to: Routes.tag_index_path(@socket, :new) %>
       </div>
     </div>
   </div>
+</div>
 
+<div>
   <%= if @live_action in [:new, :edit] do %>
     <%= live_modal @socket, BookmarkServerWeb.TagLive.FormComponent,
       id: @tag.id || :new,
@@ -31,7 +39,7 @@
       <nav class="border-t border-gray-200 m-4">
         <ul class="flex my-2">
           <li> <a class="px-2 py-2 <%= if @page_number <= 1, do: "pointer-events-none text-gray-600" %>" href="#" phx-click="nav" phx-value-page="<%= @page_number - 1 %>">Previous</a> </li>
-          <%= for idx <-  Enum.to_list(1..@total_pages) do %>
+          <%= for idx <- Enum.to_list(1..@total_pages) do %>
             <li > <a class="px-2 py-2 border-b-2 hover:border-blue-200<%= if @page_number == idx, do: "pointer-events-none text-gray-600 border-b-2 border-blue-400" %>" href="#" phx-click="nav" phx-value-page="<%= idx %>"><%= idx %></a> </li>
           <% end %>
           <li> <a class="px-2 py-2 <%= if @page_number >= @total_pages, do: "pointer-events-none text-gray-600" %>" href="#" phx-click="nav" phx-value-page="<%= @page_number + 1 %>">Next</a> </li>
@@ -69,7 +77,4 @@
       No tags defined.
     <% end %>
   </div>
-
-
-
 </div>
