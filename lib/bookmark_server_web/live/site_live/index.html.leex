@@ -6,14 +6,14 @@
 
     <div class="col-span-8">
       <div>
-      <form phx-change="run_search">
-        <%= text_input :query_field,
-            :query,
-            placeholder: "Search bookmarked sites",
-            autofocus: true,
-            class: "w-full",
-            "phx-debounce": "500" , value: @search%>
-      </form>
+        <form phx-change="run_search">
+          <%= text_input :query_field,
+              :query,
+              placeholder: "Search bookmarked sites",
+              autofocus: true,
+              class: "w-full",
+              "phx-debounce": "500" , value: @search%>
+        </form>
       </div>
       <div>
         <small>Filtering tags (click to remove)</small>

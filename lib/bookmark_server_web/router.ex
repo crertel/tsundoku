@@ -17,6 +17,11 @@ defmodule BookmarkServerWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :authed_api do
+    plug :accepts, ["json"]
+    plug BookmarkServerWeb.Plugs.TokenAccess
+  end
+
   scope "/", BookmarkServerWeb do
     pipe_through :browser
 
@@ -77,6 +82,20 @@ defmodule BookmarkServerWeb.Router do
     get "/users/confirm", UserConfirmationController, :new
     post "/users/confirm", UserConfirmationController, :create
     get "/users/confirm/:token", UserConfirmationController, :confirm
+  end
+
+  scope "/api", BookmarkServerWeb do
+    pipe_through [:api]
+
+    post "/login", UserTokenController, :new
+  end
+
+  scope "/api", BookmarkServerWeb do
+    pipe_through [:authed_api]
+
+    post "/create_site", ApiController, :create_site
+    post "/create_tag", ApiController, :create_tag
+    post "/create_user", ApiController, :create_user
   end
 
   scope "/", BookmarkServerWeb do
