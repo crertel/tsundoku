@@ -7,7 +7,9 @@ defmodule BookmarkServerWeb.TagLiveTest do
 
   @create_attrs %{name: "some name"}
   @update_attrs %{name: "some updated name"}
-  @invalid_attrs %{name: nil}
+  @invalid_attrs %{name: ""}
+
+  @moduletag :tags
 
   defp fixture(:tag) do
     {:ok, tag} = Bookmarks.create_tag(@create_attrs)
@@ -16,20 +18,23 @@ defmodule BookmarkServerWeb.TagLiveTest do
 
   defp create_tag(_) do
     tag = fixture(:tag)
-    %{tag: tag}
+    user =  BookmarkServer.AccountsFixtures.user_fixture(confirmed: true)
+    %{tag: tag, user: user}
   end
 
   describe "Index" do
     setup [:create_tag]
 
-    test "lists all tags", %{conn: conn, tag: tag} do
+    test "lists all tags", %{conn: conn, tag: tag, user: user} do
+      conn = log_in_user(conn, user)
       {:ok, _index_live, html} = live(conn, Routes.tag_index_path(conn, :index))
 
       assert html =~ "Listing Tags"
       assert html =~ tag.name
     end
 
-    test "saves new tag", %{conn: conn} do
+    test "saves new tag", %{conn: conn, user: user} do
+      conn = log_in_user(conn, user)
       {:ok, index_live, _html} = live(conn, Routes.tag_index_path(conn, :index))
 
       assert index_live |> element("a", "New Tag") |> render_click() =~
@@ -51,7 +56,8 @@ defmodule BookmarkServerWeb.TagLiveTest do
       assert html =~ "some name"
     end
 
-    test "updates tag in listing", %{conn: conn, tag: tag} do
+    test "updates tag in listing", %{conn: conn, tag: tag, user: user} do
+      conn = log_in_user(conn, user)
       {:ok, index_live, _html} = live(conn, Routes.tag_index_path(conn, :index))
 
       assert index_live |> element("#tag-#{tag.id} a", "Edit") |> render_click() =~
@@ -73,7 +79,8 @@ defmodule BookmarkServerWeb.TagLiveTest do
       assert html =~ "some updated name"
     end
 
-    test "deletes tag in listing", %{conn: conn, tag: tag} do
+    test "deletes tag in listing", %{conn: conn, tag: tag, user: user} do
+      conn = log_in_user(conn, user)
       {:ok, index_live, _html} = live(conn, Routes.tag_index_path(conn, :index))
 
       assert index_live |> element("#tag-#{tag.id} a", "Delete") |> render_click()
@@ -84,14 +91,16 @@ defmodule BookmarkServerWeb.TagLiveTest do
   describe "Show" do
     setup [:create_tag]
 
-    test "displays tag", %{conn: conn, tag: tag} do
+    test "displays tag", %{conn: conn, tag: tag, user: user} do
+      conn = log_in_user(conn, user)
       {:ok, _show_live, html} = live(conn, Routes.tag_show_path(conn, :show, tag))
 
       assert html =~ "Show Tag"
       assert html =~ tag.name
     end
 
-    test "updates tag within modal", %{conn: conn, tag: tag} do
+    test "updates tag within modal", %{conn: conn, tag: tag, user: user} do
+      conn = log_in_user(conn, user)
       {:ok, show_live, _html} = live(conn, Routes.tag_show_path(conn, :show, tag))
 
       assert show_live |> element("a", "Edit") |> render_click() =~

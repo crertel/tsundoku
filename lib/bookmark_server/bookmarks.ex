@@ -31,7 +31,6 @@ defmodule BookmarkServer.Bookmarks do
     search_string: search_string,
     created_by: user_id
   }, params \\ [] ) do
-    IO.inspect(user_id, label: "USERID")
     q_string = "%#{search_string}%"
     q = from t in Tag,
         where: ilike(t.name, ^q_string),
@@ -139,7 +138,8 @@ defmodule BookmarkServer.Bookmarks do
 
   """
   def list_sites do
-    Repo.all(Site)
+    q = from s in Site, preload: [:tags]
+    Repo.all(q)
   end
 
   def paginate_sites(params \\ []) do

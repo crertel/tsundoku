@@ -3,7 +3,6 @@ defmodule BookmarkServerWeb.ApiTest do
 
   import BookmarkServer.AccountsFixtures
   alias BookmarkServer.Accounts
-  alias BookmarkServer.Assignments
 
   setup %{conn: conn} do
     conn =
@@ -18,14 +17,14 @@ defmodule BookmarkServerWeb.ApiTest do
   end
 
   describe "creation of user" do
-    test "fails without token", %{conn: conn, user: user} do
+    test "fails without token", %{conn: conn, user: _user} do
       path = Routes.api_path(conn, :create_user)
       conn = conn |> post( path, %{} )
       assert conn.status == 403
       assert conn.halted
     end
 
-    test "fails with invalid token", %{conn: conn, user: user} do
+    test "fails with invalid token", %{conn: conn, user: _user} do
       path = Routes.api_path(conn, :create_user)
       conn = conn
         |> put_req_header("authorization", "baconbaconbacon")
@@ -34,7 +33,7 @@ defmodule BookmarkServerWeb.ApiTest do
       assert conn.halted
     end
 
-    test "fails with correct token and bad params", %{conn: conn, user: user, token: token} do
+    test "fails with correct token and bad params", %{conn: conn, user: _user, token: token} do
       path = Routes.api_path(conn, :create_user)
       conn = conn
         |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
@@ -52,7 +51,7 @@ defmodule BookmarkServerWeb.ApiTest do
       assert conn.halted
     end
 
-    test "succeeds with correct token and good params", %{conn: conn, user: user, token: token} do
+    test "succeeds with correct token and good params", %{conn: conn, user: _user, token: token} do
       path = Routes.api_path(conn, :create_user)
       conn = conn
         |> put_req_header("authorization", "bearer #{Base.encode64(token)}")

@@ -5,8 +5,8 @@ defmodule BookmarkServerWeb.SiteLiveTest do
 
   alias BookmarkServer.Bookmarks
 
-  @create_attrs %{url: "some url"}
-  @update_attrs %{url: "some updated url"}
+  @create_attrs %{url: "https://www.example.com", display_name: "Example dot com" }
+  @update_attrs %{url: "https://www.example2.com", display_name: "Example Two dot com" }
   @invalid_attrs %{url: nil}
 
   defp fixture(:site) do

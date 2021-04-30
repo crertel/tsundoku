@@ -65,8 +65,8 @@ defmodule BookmarkServer.BookmarksTest do
   describe "sites" do
     alias BookmarkServer.Bookmarks.Site
 
-    @valid_attrs %{url: "some url"}
-    @update_attrs %{url: "some updated url"}
+    @valid_attrs %{url: "http://www.example.com"}
+    @update_attrs %{url: "http://www.example2.com"}
     @invalid_attrs %{url: nil}
 
     def site_fixture(attrs \\ %{}) do
@@ -90,7 +90,7 @@ defmodule BookmarkServer.BookmarksTest do
 
     test "create_site/1 with valid data creates a site" do
       assert {:ok, %Site{} = site} = Bookmarks.create_site(@valid_attrs)
-      assert site.url == "some url"
+      assert site.url == "http://www.example.com"
     end
 
     test "create_site/1 with invalid data returns error changeset" do
@@ -100,7 +100,7 @@ defmodule BookmarkServer.BookmarksTest do
     test "update_site/2 with valid data updates the site" do
       site = site_fixture()
       assert {:ok, %Site{} = site} = Bookmarks.update_site(site, @update_attrs)
-      assert site.url == "some updated url"
+      assert site.url == "http://www.example2.com"
     end
 
     test "update_site/2 with invalid data returns error changeset" do
