@@ -34,7 +34,8 @@ defmodule BookmarkServerWeb.TagLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
-    assigns = get_and_assign_page(params["page"], params["search"] || "",socket.assigns.current_user.id)
+    assigns = get_and_assign_page(params["page"], params["search"] || "", socket.assigns.current_user.id)
+
     socket
     |> assign(assigns)
     |> assign(:page_title, "Listing Tags")

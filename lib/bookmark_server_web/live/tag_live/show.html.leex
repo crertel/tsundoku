@@ -5,6 +5,7 @@
     id: @tag.id,
     title: @page_title,
     action: @live_action,
+    current_user: @current_user,
     tag: @tag,
     return_to: Routes.tag_show_path(@socket, :show, @tag) %>
 <% end %>
