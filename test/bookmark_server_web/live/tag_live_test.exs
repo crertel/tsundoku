@@ -100,7 +100,6 @@ defmodule BookmarkServerWeb.TagLiveTest do
       assert html =~ tag.name
     end
 
-    @tag :uut
     test "updates tag within modal", %{conn: conn, tag: tag, user: user} do
       conn = log_in_user(conn, user)
       {:ok, show_live, _html} = live(conn, Routes.tag_show_path(conn, :show, tag))
