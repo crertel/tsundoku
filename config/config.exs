@@ -11,7 +11,7 @@ config :bookmark_server,
   ecto_repos: [BookmarkServer.Repo],
   generators: [binary_id: true]
 
-config :bookmark_server, BookmarkServer.Repo, migration_timestamps: [type: :utc_datetime]
+config :bookmark_server, BookmarkServer.Repo, migration_timestamps: [type: :utc_datetime_usec]
 
 # Configures the endpoint
 config :bookmark_server, BookmarkServerWeb.Endpoint,

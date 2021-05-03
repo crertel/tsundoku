@@ -28,6 +28,7 @@ defmodule BookmarkServerWeb.TagLive.FormComponent do
   end
 
   defp save_tag(socket, :edit, tag_params) do
+    #TODO: only let us update our own tags
     case Bookmarks.update_tag(socket.assigns.tag, tag_params) do
       {:ok, _tag} ->
         {:noreply,
@@ -41,7 +42,8 @@ defmodule BookmarkServerWeb.TagLive.FormComponent do
   end
 
   defp save_tag(socket, :new, tag_params) do
-    case Bookmarks.create_tag(tag_params) do
+    params = tag_params |> Map.put("created_by_id", socket.assigns.current_user.id)
+    case Bookmarks.create_tag(params) do
       {:ok, _tag} ->
         {:noreply,
          socket

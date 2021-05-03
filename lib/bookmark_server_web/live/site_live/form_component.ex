@@ -81,6 +81,7 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
 
   defp save_site(socket, :edit, site_params) do
     preloaded_site = BookmarkServer.Repo.preload(socket.assigns.site, :tags)
+    #TODO: check that we're only updating our own sites
     case Bookmarks.update_site(preloaded_site, site_params) do
       {:ok, _site} ->
         {:noreply,
@@ -94,7 +95,8 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
   end
 
   defp save_site(socket, :new, site_params) do
-    case Bookmarks.create_site(site_params) do
+    params = site_params |> Map.put("created_by_id", socket.assigns.current_user.id)
+    case Bookmarks.create_site(params) do
       {:ok, _site} ->
         {:noreply,
          socket

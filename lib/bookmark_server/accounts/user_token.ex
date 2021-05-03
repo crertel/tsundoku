@@ -1,5 +1,5 @@
 defmodule BookmarkServer.Accounts.UserToken do
-  use Ecto.Schema
+  use BookmarkServer.Schema
   import Ecto.Query
 
   @hash_algorithm :sha256

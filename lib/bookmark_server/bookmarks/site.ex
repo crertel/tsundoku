@@ -29,7 +29,6 @@ defmodule BookmarkServer.Bookmarks.Site do
     |> validate_required([:url])
     |> validate_url(:url)
     |> put_assoc(:tags, Map.get(attrs, "tags", []))
-
   end
 
   def validate_url(changeset, field, options \\ [] ) do

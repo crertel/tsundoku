@@ -30,6 +30,7 @@ defmodule BookmarkServerWeb.TagLiveTest do
       assert html =~ tag.name
     end
 
+    @tag :uut
     test "saves new tag", %{conn: conn, user: user} do
       conn = log_in_user(conn, user)
       {:ok, index_live, _html} = live(conn, Routes.tag_index_path(conn, :index))
@@ -43,14 +44,16 @@ defmodule BookmarkServerWeb.TagLiveTest do
              |> form("#tag-form", tag: @invalid_attrs)
              |> render_change() =~ "can&#39;t be blank"
 
+      tag_name = "tag-#{:random.uniform()}"
+      tag_info = @create_attrs |> Map.put(:name, tag_name)
       {:ok, _, html} =
         index_live
-        |> form("#tag-form", tag: @create_attrs)
+        |> form("#tag-form", tag: tag_info)
         |> render_submit()
         |> follow_redirect(conn, Routes.tag_index_path(conn, :index))
 
       assert html =~ "Tag created successfully"
-      assert html =~ "some name"
+      assert html =~ tag_name
     end
 
     test "updates tag in listing", %{conn: conn, tag: tag, user: user} do
