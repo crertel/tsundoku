@@ -13,7 +13,7 @@
     <header>
       <section>
         <nav role="navigation" class="bg-gray-500 p-4 w-full flex justify-between">
-          <div class="flex flex-row flex-">
+          <div class="flex flex-row m-2">
             <%= if function_exported?(Routes, :live_dashboard_path, 2) do %>
               <div class="mx-4">
                 <%= link "LiveDashboard", to: Routes.live_dashboard_path(@conn, :home) %>
