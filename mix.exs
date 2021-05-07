@@ -50,7 +50,8 @@ defmodule BookmarkServer.MixProject do
       {:phx_gen_auth, "~> 0.7", only: [:dev], runtime: false},
       {:scrivener_ecto, "~> 2.7.0"},
       {:heroicons, "~>0.2.2"},
-      {:valid_url, "~> 0.1.2"}
+      {:valid_url, "~> 0.1.2"},
+      {:cors_plug, "~> 2.0"}
     ]
   end
 
