@@ -57,6 +57,8 @@ defmodule BookmarkServer.Bookmarks do
   """
   def get_tag!(id), do: Repo.get!(Tag, id)
 
+  def get_tag(id), do: Repo.get(Tag, id)
+
   @doc """
   Creates a tag.
 

@@ -26,11 +26,18 @@ defmodule BookmarkServerWeb.ApiTest do
       "tags" => tags
     })
 
+    {:ok, tag} = BookmarkServer.Bookmarks.create_tag(%{
+      "created_by_id" => user.id,
+      "name" => "tag"
+    })
+
     bm = bookmark
     |> Repo.preload(:tags)
     |> Repo.preload(:created_by)
 
-    %{user: user, conn: conn, token: token, bookmark: bm}
+    t = tag |> Repo.preload(:created_by)
+
+    %{user: user, conn: conn, token: token, bookmark: bm, tag: t}
   end
 
   describe "creation of user" do
@@ -121,7 +128,6 @@ defmodule BookmarkServerWeb.ApiTest do
   end
 
   describe "update bookmark" do
-    @describetag :uut
 
     test "fails without token", %{conn: conn, bookmark: bookmark} do
     path = Routes.api_path(conn, :update_bookmark, bookmark.id)
@@ -203,6 +209,49 @@ defmodule BookmarkServerWeb.ApiTest do
         |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
         |> post( path, @good_tag )
       assert conn.status == 201
+    end
+  end
+
+  describe "update tag" do
+    test "fails without token", %{conn: conn, tag: tag} do
+    path = Routes.api_path(conn, :update_tag, tag.id)
+      conn = conn |> post( path, %{} )
+      assert conn.status == 403
+      assert conn.halted
+    end
+
+    test "fails with invalid token", %{conn: conn, tag: tag} do
+      path = Routes.api_path(conn, :update_tag, tag.id)
+      conn = conn
+        |> put_req_header("authorization", "baconbaconbacon")
+        |> post( path, %{} )
+      assert conn.status == 403
+      assert conn.halted
+    end
+
+    test "fails with correct token and bad params", %{conn: conn, tag: tag, token: token} do
+      path = Routes.api_path(conn, :update_tag, tag.id)
+      conn = conn
+        |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
+        |> post( path, %{} )
+      assert conn.status == 400
+      assert conn.halted
+    end
+
+    test "succeeds with correct token and good params", %{conn: conn, tag: tag, token: token} do
+      path = Routes.api_path(conn, :update_tag, tag.id)
+
+      conn = conn
+        |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
+        |> post( path, %{
+          "name" => "tag2",
+        } )
+      {:ok, response} = Jason.decode(conn.resp_body)
+
+      assert conn.status == 201
+      assert response["id"] == tag.id
+      assert response["created_by"] == tag.created_by.id
+      assert response["name"] == "tag2"
     end
   end
 end

@@ -103,4 +103,35 @@ defmodule BookmarkServerWeb.ApiController do
   def create_tag(conn, _) do
     conn |> send_resp(400, "{}") |> halt
   end
+
+  def update_tag(conn, %{"tag_id" => tag_id, "name" => name}) do
+    user = conn.assigns.user
+    tag = Bookmarks.get_tag(tag_id) |> BookmarkServer.Repo.preload(:created_by)
+
+    cond do
+      is_nil(tag) -> conn |> send_resp(404, "{}") |> halt
+      tag.created_by != user -> conn |> send_resp(403, "{}") |> halt
+      true ->
+        try do
+          {:ok, new_tag} = Bookmarks.update_tag(tag, %{
+            "name" => name,
+            "created_by_id"=> user.id,
+          })
+
+          {:ok, json} = Jason.encode(%{
+            id: new_tag.id,
+            created_by: new_tag.created_by.id,
+            name: new_tag.name
+          })
+          conn |> send_resp(201, json) |> halt
+        rescue
+          err ->
+            {:ok, json} = Jason.encode(%{msg: inspect(err)})
+            conn |> send_resp(500, json) |> halt
+        end
+    end
+  end
+  def update_tag(conn, _) do
+    conn |> send_resp(400, "{}") |> halt
+  end
 end
