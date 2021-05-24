@@ -63,4 +63,19 @@ defmodule BookmarkServerWeb.ApiController do
   def update_bookmark(conn, _) do
     conn |> send_resp(400, "{}") |> halt
   end
+
+  def create_tag(conn, %{"name" => name}) do
+    user = conn.assigns.user
+
+    try do
+      Bookmarks.create_tag(%{name: name, created_by_id: user.id})
+    rescue
+      _ -> nil
+    end
+
+    conn |> send_resp(201, "{}") |> halt
+  end
+  def create_tag(conn, _) do
+    conn |> send_resp(400, "{}") |> halt
+  end
 end

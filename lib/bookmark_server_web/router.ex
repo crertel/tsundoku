@@ -95,6 +95,8 @@ defmodule BookmarkServerWeb.Router do
 
     post "/create_bookmark", ApiController, :create_bookmark
     post "/update_bookmark", ApiController, :update_bookmark
+    post "/create_tag", ApiController, :create_tag
+    post "/update_tag", ApiController, :update_tag
     post "/create_user", ApiController, :create_user
   end
 

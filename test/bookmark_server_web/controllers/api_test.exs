@@ -63,7 +63,6 @@ defmodule BookmarkServerWeb.ApiTest do
 
 
   describe "create bookmark" do
-    @describetag :uut
     test "fails without token", %{conn: conn, user: _user} do
     path = Routes.api_path(conn, :create_bookmark)
       conn = conn |> post( path, %{} )
@@ -82,7 +81,7 @@ defmodule BookmarkServerWeb.ApiTest do
 
     @good_bookmark %{
       "url" => "https://www.example.com",
-      "title" => "test tag",
+      "title" => "test site",
       "tags" => ["a","b",]
     }
 
@@ -100,6 +99,46 @@ defmodule BookmarkServerWeb.ApiTest do
       conn = conn
         |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
         |> post( path, @good_bookmark )
+      assert conn.status == 201
+    end
+  end
+
+  describe "create tag" do
+    @describetag :uut
+    test "fails without token", %{conn: conn, user: _user} do
+    path = Routes.api_path(conn, :create_tag)
+      conn = conn |> post( path, %{} )
+      assert conn.status == 403
+      assert conn.halted
+    end
+
+    test "fails with invalid token", %{conn: conn, user: _user} do
+      path = Routes.api_path(conn, :create_tag)
+      conn = conn
+        |> put_req_header("authorization", "baconbaconbacon")
+        |> post( path, %{} )
+      assert conn.status == 403
+      assert conn.halted
+    end
+
+  @good_tag %{
+      "name" => "test tag",
+    }
+
+    test "fails with correct token and bad params", %{conn: conn, token: token} do
+      path = Routes.api_path(conn, :create_tag)
+      conn = conn
+        |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
+        |> post( path, %{} )
+      assert conn.status == 400
+      assert conn.halted
+    end
+
+    test "succeeds with correct token and good params", %{conn: conn, user: _user, token: token} do
+      path = Routes.api_path(conn, :create_tag)
+      conn = conn
+        |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
+        |> post( path, @good_tag )
       assert conn.status == 201
     end
   end
