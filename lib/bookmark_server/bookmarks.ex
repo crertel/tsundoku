@@ -207,6 +207,9 @@ defmodule BookmarkServer.Bookmarks do
   """
   def get_site!(id), do: Repo.get!(Site, id)
 
+  def get_site(id), do: Repo.get(Site, id)
+
+  @spec create_site(%{optional(:__struct__) => none, optional(atom | binary) => any}) :: any
   @doc """
   Creates a site.
 
