@@ -29,8 +29,6 @@ defmodule BookmarkServerWeb.UserTokenController do
 
   def new(conn, _) do
 
-    IO.inspect(conn)
-
     conn
     |> put_status(400)
     |> json(%{})
