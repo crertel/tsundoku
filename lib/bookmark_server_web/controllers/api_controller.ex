@@ -42,6 +42,36 @@ defmodule BookmarkServerWeb.ApiController do
     conn |> send_resp(400, "{}") |> halt
   end
 
+  def get_bookmark(conn, %{"bookmark_id" => bookmark_id}) do
+    user = conn.assigns.user
+    try do
+      case Bookmarks.get_site(bookmark_id) do
+        %Site{} = bookmark ->
+          bm = bookmark
+            |> BookmarkServer.Repo.preload(:created_by)
+            |> BookmarkServer.Repo.preload(:tags)
+          if bm.created_by != user do
+            conn |> send_resp(403, "{}") |> halt
+          else
+            {:ok, json} = Jason.encode(%{
+              id: bm.id,
+              created_by: bm.created_by.id,
+              display_name: bm.display_name,
+              url: bm.url,
+              tags: bm.tags |> Enum.map( &(&1.name))
+            })
+            conn |> send_resp(200, json) |> halt
+          end
+        nil -> conn |> send_resp(404, "{}") |> halt
+      end
+    rescue
+      _ -> conn |> send_resp(404, "{}") |> halt
+    end
+  end
+  def get_bookmark(conn, _) do
+     conn |> send_resp(404, "{}") |> halt
+  end
+
   def update_bookmark(conn, %{"bookmark_id" => bookmark_id, "title" => title, "url" => url, "tags" => tags}) do
     user = conn.assigns.user
     bookmark = Bookmarks.get_site(bookmark_id) |> BookmarkServer.Repo.preload(:created_by)
@@ -93,15 +123,49 @@ defmodule BookmarkServerWeb.ApiController do
     user = conn.assigns.user
 
     try do
-      Bookmarks.create_tag(%{name: name, created_by_id: user.id})
-    rescue
-      _ -> nil
-    end
+      {:ok, %Tag{} = tag} = Bookmarks.create_tag(%{name: name, created_by_id: user.id})
+      {:ok, json} = Jason.encode(%{
+        id: tag.id,
+        created_by: user.id,
+        name: tag.name
+      })
 
-    conn |> send_resp(201, "{}") |> halt
+      conn |> send_resp(201, json) |> halt
+    rescue
+      err ->
+        {:ok, json} = Jason.encode(%{msg: inspect(err)})
+        conn |> send_resp(500, json) |> halt
+    end
   end
   def create_tag(conn, _) do
     conn |> send_resp(400, "{}") |> halt
+  end
+
+  def get_tag(conn, %{"tag_id" => tag_id}) do
+    user = conn.assigns.user
+    try do
+      case Bookmarks.get_tag(tag_id) do
+        %Tag{} = tag ->
+          t = tag |> BookmarkServer.Repo.preload(:created_by)
+
+          if t.created_by != user do
+            conn |> send_resp(403, "{}") |> halt
+          else
+            {:ok, json} = Jason.encode(%{
+              id: t.id,
+              created_by: t.created_by.id,
+              name: t.name
+            })
+            conn |> send_resp(200, json) |> halt
+          end
+        nil -> conn |> send_resp(404, "{}") |> halt
+      end
+    rescue
+      _ -> conn |> send_resp(404, "{}") |> halt
+    end
+  end
+  def get_tag(conn, _) do
+    conn |> send_resp(404, "{}") |> halt
   end
 
   def update_tag(conn, %{"tag_id" => tag_id, "name" => name}) do
