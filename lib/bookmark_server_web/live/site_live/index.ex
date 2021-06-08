@@ -42,14 +42,16 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
-    assigns = get_and_assign_page( params["page"] || 1, params["search"] || "", params["tags"] || [], socket.assigns.current_user.id)
+    assigns = get_and_assign_page(
+      params["page"] || 1,
+      params["search"] || "",
+      params["tags"] || [],
+      socket.assigns.current_user.id)
     socket
     |> assign(:page_title, "Listing Sites")
-    |> assign( assigns)
-    |> assign( :search, params["search"] || "")
     |> assign( :available_tags, BookmarkServer.Bookmarks.list_tags() |> Enum.map(&(&1.name)))
-    |> assign( :filtering_tags, params["tags"] || [])
     |> assign(:site, nil)
+    |> assign( assigns)
   end
 
   @impl true
@@ -78,7 +80,12 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       :ok
     end)
 
-    {:noreply, socket}
+    assigns = get_and_assign_page(socket.assigns.page_number,
+                                  socket.assigns.search,
+                                  socket.assigns.filtering_tags,
+                                  socket.assigns.current_user.id)
+
+    {:noreply, socket |> assign(assigns) }
   end
 
   @impl true
@@ -145,6 +152,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       page_size: page_size,
       total_entries: total_entries,
       total_pages: total_pages,
+      filtering_tags: filtering_tags,
       search: search_string
     ]
   end
