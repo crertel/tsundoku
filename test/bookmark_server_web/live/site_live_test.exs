@@ -31,8 +31,8 @@ defmodule BookmarkServerWeb.SiteLiveTest do
     test "saves new site", %{conn: conn, user: user} do
       conn = log_in_user(conn, user)
 
-      site_name = "site name #{:random.uniform()}"
-      site_url = "http://www.example.com/#{:random.uniform()}"
+      site_name = "site name #{:rand.uniform()}"
+      site_url = "http://www.example.com/#{:rand.uniform()}"
 
       {:ok, index_live, _html} = live(conn, Routes.site_index_path(conn, :index))
 

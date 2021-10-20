@@ -139,8 +139,18 @@ defmodule BookmarkServerWeb.UserAuth do
     end
   end
 
-  defp maybe_store_return_to(%{method: "GET"} = conn) do
-    put_session(conn, :user_return_to, current_path(conn))
+  defp maybe_store_return_to(%Plug.Conn{method: "GET", request_path: request_path, query_string: ""} = conn) do
+    frag = URI.parse(request_path) |> URI.to_string()
+
+    put_session(conn, :user_return_to, frag)
+  end
+
+  defp maybe_store_return_to(%Plug.Conn{method: "GET", request_path: request_path, query_string: query_string} = conn) do
+    frag = URI.parse(request_path)
+           |> Map.put(:query, URI.decode_query(query_string) |> URI.encode_query())
+           |> URI.to_string()
+
+    put_session(conn, :user_return_to, frag)
   end
 
   defp maybe_store_return_to(conn), do: conn

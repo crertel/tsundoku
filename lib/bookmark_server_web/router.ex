@@ -105,16 +105,16 @@ defmodule BookmarkServerWeb.Router do
   scope "/", BookmarkServerWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    live "/tags", TagLive.Index, :index, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/tags/new", TagLive.Index, :new, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/tags/:id/edit", TagLive.Index, :edit, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/tags/:id", TagLive.Show, :show, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/tags/:id/show/edit", TagLive.Show, :edit, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/tags", TagLive.Index, :index #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/tags/new", TagLive.Index, :new #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/tags/:id/edit", TagLive.Index, :edit #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/tags/:id", TagLive.Show, :show #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/tags/:id/show/edit", TagLive.Show, :edit #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
 
-    live "/sites", SiteLive.Index, :index, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/sites/new", SiteLive.Index, :new, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/sites/:id/edit", SiteLive.Index, :edit, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/sites/:id", SiteLive.Show, :show, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/sites/:id/show/edit", SiteLive.Show, :edit, session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/sites", SiteLive.Index, :index #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/sites/new", SiteLive.Index, :new #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/sites/:id/edit", SiteLive.Index, :edit #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/sites/:id", SiteLive.Show, :show #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/sites/:id/show/edit", SiteLive.Show, :edit #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
   end
 end

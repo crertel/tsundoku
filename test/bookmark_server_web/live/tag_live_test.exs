@@ -44,7 +44,7 @@ defmodule BookmarkServerWeb.TagLiveTest do
              |> form("#tag-form", tag: @invalid_attrs)
              |> render_change() =~ "can&#39;t be blank"
 
-      tag_name = "tag-#{:random.uniform()}"
+      tag_name = "tag-#{:rand.uniform()}"
       tag_info = @create_attrs |> Map.put(:name, tag_name)
       {:ok, _, html} =
         index_live
