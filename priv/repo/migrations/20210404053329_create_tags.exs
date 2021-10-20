@@ -9,9 +9,5 @@ defmodule BookmarkServer.Repo.Migrations.CreateTags do
       timestamps()
     end
 
-    create(
-      unique_index(:tags, [:name], name: :tag_name_unique_index)
-    )
-
   end
 end
