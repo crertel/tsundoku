@@ -36,6 +36,7 @@ defmodule BookmarkServer.MixProject do
       {:bcrypt_elixir, "~> 2.0"},
       {:cors_plug, "~> 2.0"},
       {:ecto_sql, "~> 3.7.1"},
+      {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
       {:floki, "~> 0.32.0"},
       {:heroicons, "~>0.2.4"},
       {:jason, "~> 1.0"},
@@ -65,7 +66,8 @@ defmodule BookmarkServer.MixProject do
       setup: ["deps.get", "ecto.setup", "cmd npm install --prefix assets"],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
+      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      "assets.deploy": ["esbuild default --minify", "phx.digest"]
     ]
   end
 end
