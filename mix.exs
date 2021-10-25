@@ -34,7 +34,7 @@ defmodule BookmarkServer.MixProject do
   defp deps do
     [
       {:bcrypt_elixir, "~> 2.0"},
-      {:cors_plug, "~> 2.0"},
+      {:cors_plug, "~> 2.0.3"},
       {:ecto_sql, "~> 3.7.1"},
       {:esbuild, "~> 0.2", runtime: Mix.env() == :dev},
       {:floki, "~> 0.32.0"},
