@@ -4,6 +4,11 @@ defmodule BookmarkServerWeb.ApiController do
   alias BookmarkServer.Bookmarks
   alias BookmarkServer.Bookmarks.{Site,Tag}
 
+  def test(conn, _) do
+    conn
+    |> send_resp(200, "{}")
+  end
+
   def create_user(conn, %{"email" => email, "password" => password}) do
     with {:create_user, {:ok, _user}} <- {:create_user, Accounts.register_user(%{"email" => email, "password" => password})} do
       conn

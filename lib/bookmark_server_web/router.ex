@@ -93,6 +93,7 @@ defmodule BookmarkServerWeb.Router do
   scope "/api", BookmarkServerWeb do
     pipe_through [:authed_api]
 
+    get "/test", ApiController, :test
     get "/bookmarks/:bookmark_id", ApiController, :get_bookmark
     get "/tags/:tag_id", ApiController, :get_tag
     post "/create_bookmark", ApiController, :create_bookmark
