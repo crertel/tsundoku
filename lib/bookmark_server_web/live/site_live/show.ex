@@ -17,4 +17,34 @@ defmodule BookmarkServerWeb.SiteLive.Show do
 
   defp page_title(:show), do: "Show Site"
   defp page_title(:edit), do: "Edit Site"
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <h1>Show Site</h1>
+
+    <%= if @live_action in [:edit] do %>
+    <%= live_modal @socket, BookmarkServerWeb.SiteLive.FormComponent,
+    id: @site.id,
+    title: @page_title,
+    action: @live_action,
+    site: @site,
+    current_user: @current_user,
+    return_to: Routes.site_show_path(@socket, :show, @site) %>
+    <% end %>
+
+    <ul>
+
+    <li>
+    <strong>Url:</strong>
+    <%= @site.url %>
+    </li>
+
+    </ul>
+
+    <span><%= live_patch "Edit", to: Routes.site_show_path(@socket, :edit, @site), class: "button" %></span>
+    <span><%= live_redirect "Back", to: Routes.site_index_path(@socket, :index) %></span>
+
+    """
+  end
 end

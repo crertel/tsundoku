@@ -36,4 +36,22 @@ defmodule BookmarkServerWeb.PageLive do
         into: %{},
         do: {app, vsn}
   end
+
+  @impl true
+  def render(assigns) do
+    ~H"""
+    <h1>Bookmark Server</h1>
+
+    <section class="phx-hero">
+      <form phx-change="suggest" phx-submit="search">
+        <input type="text" name="q" value={@query} placeholder="Live dependency search" list="results" autocomplete="off"/>
+        <datalist id="results">
+          <%= for {app, _vsn} <- @results do %>
+            <option value={app}><%= app %></option>
+          <% end %>
+        </datalist>
+      </form>
+    </section>
+    """
+  end
 end
