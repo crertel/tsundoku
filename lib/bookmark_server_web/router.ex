@@ -70,9 +70,6 @@ defmodule BookmarkServerWeb.Router do
     get "/users/settings", UserSettingsController, :edit
     put "/users/settings", UserSettingsController, :update
     get "/users/settings/confirm_email/:token", UserSettingsController, :confirm_email
-
-
-
   end
 
   scope "/", BookmarkServerWeb do
@@ -106,16 +103,16 @@ defmodule BookmarkServerWeb.Router do
   scope "/", BookmarkServerWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    live "/tags", TagLive.Index, :index #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/tags/new", TagLive.Index, :new #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/tags/:id/edit", TagLive.Index, :edit #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/tags/:id", TagLive.Show, :show #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/tags/:id/show/edit", TagLive.Show, :edit #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/tags", TagLive.Index, :index
+    live "/tags/new", TagLive.Index, :new
+    live "/tags/:id/edit", TagLive.Index, :edit
+    live "/tags/:id", TagLive.Show, :show
+    live "/tags/:id/show/edit", TagLive.Show, :edit
 
-    live "/sites", SiteLive.Index, :index #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/sites/new", SiteLive.Index, :new #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/sites/:id/edit", SiteLive.Index, :edit #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/sites/:id", SiteLive.Show, :show #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
-    live "/sites/:id/show/edit", SiteLive.Show, :edit #session: {BookmarkServerWeb.Helpers, :grab_user_info, []}
+    live "/sites", SiteLive.Index, :index
+    live "/sites/new", SiteLive.Index, :new
+    live "/sites/:id/edit", SiteLive.Index, :edit
+    live "/sites/:id", SiteLive.Show, :show
+    live "/sites/:id/show/edit", SiteLive.Show, :edit
   end
 end
