@@ -4,16 +4,24 @@ defmodule BookmarkServer.Bookmarks.Tag do
   alias BookmarkServer.Bookmarks.Site
   alias BookmarkServer.Accounts.User
 
+  @type t() :: %__MODULE__{}
+  @type id_t() :: String.t()
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "tags" do
     field :name, :string
 
-    many_to_many :sites, Site,  join_through: "sites_tags", on_replace: :delete
+    many_to_many :sites, Site, join_through: "sites_tags", on_replace: :delete
 
     belongs_to :created_by, User
 
     timestamps()
+  end
+
+  @spec new() :: t()
+  def new() do
+    %__MODULE__{}
   end
 
   @doc false

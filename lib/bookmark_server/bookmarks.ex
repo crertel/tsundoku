@@ -18,6 +18,7 @@ defmodule BookmarkServer.Bookmarks do
       [%Tag{}, ...]
 
   """
+  @spec list_tags() :: [Tag.t()]
   def list_tags do
     Repo.all(Tag)
   end
@@ -27,16 +28,20 @@ defmodule BookmarkServer.Bookmarks do
     |> Repo.paginate(params)
   end
 
-  def search_and_paginate_tags( %{
-    search_string: search_string,
-    created_by: user_id
-  }, params \\ [] ) do
+  def search_and_paginate_tags(
+        %{
+          search_string: search_string,
+          created_by: user_id
+        },
+        params \\ []
+      ) do
     q_string = "%#{search_string}%"
-    q = from t in Tag,
+
+    q =
+      from t in Tag,
         where: ilike(t.name, ^q_string),
         where: ^user_id == t.created_by_id,
         order_by: [asc: t.name]
-
 
     Repo.paginate(q, params)
   end
@@ -55,6 +60,8 @@ defmodule BookmarkServer.Bookmarks do
       ** (Ecto.NoResultsError)
 
   """
+  @spec get_tag!(Tag.id_t()) :: Tag.t() | no_return()
+
   def get_tag!(id), do: Repo.get!(Tag, id)
 
   def get_tag(id), do: Repo.get(Tag, id)
@@ -149,49 +156,56 @@ defmodule BookmarkServer.Bookmarks do
     Repo.paginate(q, params)
   end
 
-  def search_and_paginate_sites( %{
-    search_string: search_string,
-    filtering_tags: filtering_tags,
-    created_by: created_by
-  }, params \\ []) do
-
+  def search_and_paginate_sites(
+        %{
+          search_string: search_string,
+          filtering_tags: filtering_tags,
+          created_by: created_by
+        },
+        params \\ []
+      ) do
     page_size = Keyword.get(params, :page_size)
     {page_number, _} = "#{Keyword.get(params, :page, "1")}" |> Integer.parse()
 
     tags_query = from t in Tag, order_by: t.name
 
-
     q_string = "%#{search_string}%"
-    site_query = from s in Site,
+
+    site_query =
+      from s in Site,
         left_join: t in assoc(s, :tags),
         where: ilike(s.display_name, ^q_string),
         where: s.created_by_id == ^created_by
 
-    q = Enum.reduce(filtering_tags, site_query, fn(tag,full_query) ->
-      tag_query = from s in Site,
-        join: t in assoc(s, :tags),
-        where: ^tag == t.name
-      intersect(tag_query, ^full_query)
-    end)
+    q =
+      Enum.reduce(filtering_tags, site_query, fn tag, full_query ->
+        tag_query =
+          from s in Site,
+            join: t in assoc(s, :tags),
+            where: ^tag == t.name
+
+        intersect(tag_query, ^full_query)
+      end)
 
     final_query = q |> distinct(true)
-    offset = (page_number-1) * page_size
+    offset = (page_number - 1) * page_size
     entry_count = Repo.all(final_query) |> Enum.count()
-    entries = final_query
-              |> preload([tags: ^tags_query])
-              |> offset( ^offset)
-              |> limit(^page_size)
-              |> Repo.all()
+
+    entries =
+      final_query
+      |> preload(tags: ^tags_query)
+      |> offset(^offset)
+      |> limit(^page_size)
+      |> Repo.all()
 
     %Scrivener.Page{
       page_size: page_size,
       page_number: page_number,
       entries: entries,
       total_entries: entry_count,
-      total_pages: trunc(:math.ceil( entry_count / page_size))
+      total_pages: trunc(:math.ceil(entry_count / page_size))
     }
   end
-
 
   @doc """
   Gets a single site.
@@ -246,7 +260,6 @@ defmodule BookmarkServer.Bookmarks do
     site
     |> Site.changeset(attrs)
     |> Repo.update()
-
   end
 
   @doc """
@@ -280,87 +293,101 @@ defmodule BookmarkServer.Bookmarks do
 
   def load_urls(tags, urls, creator_id) do
     # preload tags into DB
-    :ok = tags |> Enum.each( fn( tag ) ->
-      try do
-        %Tag{}
-        |> Tag.changeset(%{"name" => tag, "created_by_id" => creator_id})
-        |> BookmarkServer.Repo.insert!()
-      rescue
-        _ -> nil
-      end
-    end)
+    :ok =
+      tags
+      |> Enum.each(fn tag ->
+        try do
+          %Tag{}
+          |> Tag.changeset(%{"name" => tag, "created_by_id" => creator_id})
+          |> BookmarkServer.Repo.insert!()
+        rescue
+          _ -> nil
+        end
+      end)
 
-    loaded_tags = BookmarkServer.Repo.all(Tag)
-                  |> Enum.reduce(%{}, fn tag, loaded_tags ->
-                    Map.put(loaded_tags, tag.name, tag)
-                  end)
+    loaded_tags =
+      BookmarkServer.Repo.all(Tag)
+      |> Enum.reduce(%{}, fn tag, loaded_tags ->
+        Map.put(loaded_tags, tag.name, tag)
+      end)
 
     # load URLs into DB
-    :ok =  Enum.each(urls, fn {bm_tags, bm_url,bm_title} ->
-      try do
-        fetched_tags = Enum.map( bm_tags, &(loaded_tags[&1]))
+    :ok =
+      Enum.each(urls, fn {bm_tags, bm_url, bm_title} ->
+        try do
+          fetched_tags = Enum.map(bm_tags, &loaded_tags[&1])
 
-        %Site{}
-        |> BookmarkServer.Bookmarks.Site.changeset(%{
-          "url" => bm_url,
-          "display_name" => bm_title,
-          "tags" => fetched_tags,
-          "created_by_id" => creator_id
+          %Site{}
+          |> BookmarkServer.Bookmarks.Site.changeset(%{
+            "url" => bm_url,
+            "display_name" => bm_title,
+            "tags" => fetched_tags,
+            "created_by_id" => creator_id
           })
-        |> BookmarkServer.Repo.insert!()
-      rescue
-        _ ->nil
-      end
-    end)
+          |> BookmarkServer.Repo.insert!()
+        rescue
+          _ -> nil
+        end
+      end)
   end
 
   def import_from_file(path) do
     file = File.read!(path)
     clean_html = clean_html(file)
-    root_nodes = Floki.parse_document!(clean_html)
-                 |> Enum.filter( fn
-                    {"dl",_,_} -> true
-                    _ -> false
-                  end)
 
-    urls = root_nodes |> Enum.map( &parse_node(&1,[])) |> List.flatten
-    tags = urls |> Enum.reduce(MapSet.new(), fn {tags, _url, _title}, tag_set ->
-      MapSet.new(tags)
-      |> MapSet.union(tag_set)
-    end)
+    root_nodes =
+      Floki.parse_document!(clean_html)
+      |> Enum.filter(fn
+        {"dl", _, _} -> true
+        _ -> false
+      end)
+
+    urls = root_nodes |> Enum.map(&parse_node(&1, [])) |> List.flatten()
+
+    tags =
+      urls
+      |> Enum.reduce(MapSet.new(), fn {tags, _url, _title}, tag_set ->
+        MapSet.new(tags)
+        |> MapSet.union(tag_set)
+      end)
+
     {:ok, tags, urls}
   end
 
   def clean_html(html) do
     html
-    |> String.replace(~r/<p>/i,"")
+    |> String.replace(~r/<p>/i, "")
     |> String.replace(~r/<\/p>/i, "")
-    |> String.replace(~r/<dt>/i,"")
-    |> String.replace(~r/<hr>/i,"")
-    |> String.replace(~r/icon=".*?"/i,"")
-    |> String.replace(~r/icon_uri=".*?"/i,"")
-    |> String.replace(~r/add_date=".*?"/i,"")
-    |> String.replace(~r/last_modified=".*?"/i,"")
+    |> String.replace(~r/<dt>/i, "")
+    |> String.replace(~r/<hr>/i, "")
+    |> String.replace(~r/icon=".*?"/i, "")
+    |> String.replace(~r/icon_uri=".*?"/i, "")
+    |> String.replace(~r/add_date=".*?"/i, "")
+    |> String.replace(~r/last_modified=".*?"/i, "")
   end
 
-  def parse_node( {_,_,kids}, governing_tags) do
+  def parse_node({_, _, kids}, governing_tags) do
     %{urls: urls} =
-      Enum.reduce(kids,
-      %{tags: governing_tags, urls: []},
-      fn(
-        {"dl", _attrs, _kids} = knode, %{tags: tags, urls: urls} = state) ->
-          newurls = parse_node(knode, tags)
-          [_newtag | oldtags] = tags # we pop off the head tag, since that was added by the `h3` case
-          %{state | urls: newurls ++ urls, tags: oldtags}
+      Enum.reduce(
+        kids,
+        %{tags: governing_tags, urls: []},
+        fn
+          {"dl", _attrs, _kids} = knode, %{tags: tags, urls: urls} = state ->
+            newurls = parse_node(knode, tags)
+            # we pop off the head tag, since that was added by the `h3` case
+            [_newtag | oldtags] = tags
+            %{state | urls: newurls ++ urls, tags: oldtags}
 
-        {"a", attrs, [title]}, %{tags: tags, urls: urls} = state ->
-          {"href", url} = List.keyfind(attrs, "href", 0)
-          %{state | urls: [{tags, url, title } | urls]}
+          {"a", attrs, [title]}, %{tags: tags, urls: urls} = state ->
+            {"href", url} = List.keyfind(attrs, "href", 0)
+            %{state | urls: [{tags, url, title} | urls]}
 
-        {"h3", _attrs, [label]}, %{tags: tags} = state ->
-          %{state | tags: [label | tags]}
-    end)
-    urls # goal here is to return a list of { [tag1, tag2, tag3...], url, label} tuples
+          {"h3", _attrs, [label]}, %{tags: tags} = state ->
+            %{state | tags: [label | tags]}
+        end
+      )
+
+    # goal here is to return a list of { [tag1, tag2, tag3...], url, label} tuples
+    urls
   end
-
 end
