@@ -5,7 +5,7 @@
 # is restricted to this project.
 
 # General application configuration
-use Mix.Config
+import Config
 
 config :bookmark_server,
   ecto_repos: [BookmarkServer.Repo],
