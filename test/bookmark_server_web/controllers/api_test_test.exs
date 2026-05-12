@@ -19,7 +19,7 @@ defmodule BookmarkServerWeb.ApiTestTest do
   describe "get tag" do
     test "fails without token", %{conn: conn} do
       path = Routes.api_path(conn, :test)
-      conn = conn |> get( path)
+      conn = conn |> get(path)
       assert conn.status == 403
       assert conn.halted
     end
@@ -27,9 +27,10 @@ defmodule BookmarkServerWeb.ApiTestTest do
     test "succeeds with correct token and good params", %{conn: conn, token: token} do
       path = Routes.api_path(conn, :test)
 
-      conn = conn
+      conn =
+        conn
         |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
-        |> get( path )
+        |> get(path)
 
       assert conn.resp_body == "{}"
       assert conn.status == 200

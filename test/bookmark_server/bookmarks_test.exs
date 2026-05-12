@@ -2,6 +2,7 @@ defmodule BookmarkServer.BookmarksTest do
   use BookmarkServer.DataCase
 
   alias BookmarkServer.Bookmarks
+  alias BookmarkServer.AccountsFixtures
 
   describe "tags" do
     alias BookmarkServer.Bookmarks.Tag
@@ -85,7 +86,7 @@ defmodule BookmarkServer.BookmarksTest do
 
     test "get_site!/1 returns the site with given id" do
       site = site_fixture()
-      assert Bookmarks.get_site!(site.id) |> BookmarkServer.Repo.preload((:tags)) == site
+      assert Bookmarks.get_site!(site.id) |> BookmarkServer.Repo.preload(:tags) == site
     end
 
     test "create_site/1 with valid data creates a site" do
@@ -119,6 +120,52 @@ defmodule BookmarkServer.BookmarksTest do
     test "change_site/1 returns a site changeset" do
       site = site_fixture()
       assert %Ecto.Changeset{} = Bookmarks.change_site(site)
+    end
+
+    test "search_and_paginate_sites/2 filters by search text and all selected tags" do
+      user = AccountsFixtures.user_fixture()
+      {:ok, physics} = Bookmarks.create_tag(%{name: "physics", created_by_id: user.id})
+      {:ok, reading} = Bookmarks.create_tag(%{name: "reading", created_by_id: user.id})
+      {:ok, cooking} = Bookmarks.create_tag(%{name: "cooking", created_by_id: user.id})
+
+      {:ok, matching_site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/physics-reading",
+          "display_name" => "Physics reading list",
+          "created_by_id" => user.id,
+          "tags" => [physics, reading]
+        })
+
+      {:ok, _missing_tag_site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/physics",
+          "display_name" => "Physics notes",
+          "created_by_id" => user.id,
+          "tags" => [physics]
+        })
+
+      {:ok, _wrong_search_site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/cooking",
+          "display_name" => "Cooking list",
+          "created_by_id" => user.id,
+          "tags" => [physics, reading, cooking]
+        })
+
+      page =
+        Bookmarks.search_and_paginate_sites(
+          %{
+            search_string: "Physics",
+            filtering_tags: ["physics", "reading"],
+            created_by: user.id
+          },
+          page: 1,
+          page_size: 50
+        )
+
+      assert [%Site{id: id}] = page.entries
+      assert id == matching_site.id
+      assert page.total_entries == 1
     end
   end
 end

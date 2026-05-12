@@ -1,7 +1,7 @@
 defmodule BookmarkServer.Accounts.User do
   use BookmarkServer.Schema
   import Ecto.Changeset
-  alias BookmarkServer.Bookmarks.{Site,Tag}
+  alias BookmarkServer.Bookmarks.{Site, Tag}
 
   @derive {Inspect, except: [:password]}
   @primary_key {:id, :binary_id, autogenerate: true}

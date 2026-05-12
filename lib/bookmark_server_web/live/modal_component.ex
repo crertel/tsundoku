@@ -12,8 +12,8 @@ defmodule BookmarkServerWeb.ModalComponent do
       phx-page-loading>
 
       <div class="phx-modal-content">
-        <%= live_patch raw("&times;"), to: @return_to, class: "phx-modal-close" %>
-        <%= live_component @component, @opts %>
+        <.link patch={@return_to} class="phx-modal-close">&times;</.link>
+        <.live_component module={@component} {@opts} />
       </div>
     </div>
     """

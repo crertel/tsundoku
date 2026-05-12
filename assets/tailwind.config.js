@@ -1,11 +1,11 @@
 module.exports = {
-  purge: [
+  content: [
     '../lib/**/*.ex',
-    '../lib/**/*.leex',
     '../lib/**/*.eex',
+    '../lib/**/*.heex',
+    '../lib/**/*.leex',
     './js/**/*.js'
   ],
-  darkMode: false, // or 'media' or 'class'
   theme: {
     extend: {},
   },

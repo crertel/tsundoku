@@ -105,7 +105,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   @impl true
   def handle_event("nav", %{"page" => page}, socket) do
     {:noreply,
-     push_redirect(socket,
+     push_patch(socket,
        to:
          Routes.site_index_path(socket, :index,
            page: page,
@@ -118,7 +118,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   @impl true
   def handle_event("run_search", %{"query_field" => %{"query" => search}}, socket) do
     {:noreply,
-     push_redirect(socket,
+     push_patch(socket,
        to:
          Routes.site_index_path(socket, :index,
            page: socket.assigns.page_number,
@@ -136,7 +136,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     {:noreply,
      socket
      |> assign(page_number: 1)
-     |> push_redirect(
+     |> push_patch(
        to:
          Routes.site_index_path(socket, :index,
            page: 1,
@@ -157,7 +157,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       {:noreply,
        socket
        |> assign(page_number: 1)
-       |> push_redirect(
+       |> push_patch(
          to:
            Routes.site_index_path(socket, :index,
              page: 1,
@@ -176,7 +176,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     {:noreply,
      socket
      |> assign(page_number: 1)
-     |> push_redirect(
+     |> push_patch(
        to:
          Routes.site_index_path(socket, :index,
            page: 1,
@@ -217,32 +217,37 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="p-4">
-    <div class="grid grid-cols-12 items-baseline border-b-2 border-black">
-      <div class="col-span-2">
-        <h1 class="text-lg inline-block">Listing Sites</h1>
-      </div>
-
-      <div class="col-span-8">
+    <section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div class="mb-6 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
-          <form phx-change="run_search">
+          <h1 class="text-2xl font-semibold text-slate-950">Sites</h1>
+          <p class="mt-1 text-sm text-slate-700"><%= @total_entries %> saved bookmarks</p>
+        </div>
+
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <form phx-change="run_search" class="w-full sm:w-96">
             <%= text_input :query_field,
                 :query,
                 placeholder: "Search bookmarked sites",
                 autofocus: true,
-                class: "w-full",
+                class: "block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200",
                 "phx-debounce": "500" , value: @search%>
           </form>
+
+          <.link patch={Routes.site_index_path(@socket, :new)} class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700">
+            New Site
+          </.link>
         </div>
-        <div>
-          <small>Filtering tags (click to remove)</small>
-          <div class="flex">
-            <div class="m-1 rounded-full bg-green-200 p-1 px-2">
+      </div>
+
+      <div class="mb-6 rounded-lg border border-slate-400 bg-slate-100 p-4 shadow-sm">
+        <div class="grid gap-3 lg:grid-cols-[18rem_1fr] lg:items-center">
+          <div>
               <form phx-change="add_filter_tag">
               <%= text_input :filter_tag,
                   :tag,
-                  placeholder: "Add flitering tag",
-                  class: "w-full",
+                  placeholder: "Add filtering tag",
+                  class: "block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200",
                   list: "tag_list",
                   "phx-debounce": "500" , value: @search%>
               <datalist id="tag_list" class="h-12 overflow-y-scroll">
@@ -251,24 +256,23 @@ defmodule BookmarkServerWeb.SiteLive.Index do
                 <% end %>
               </datalist>
             </form>
-            </div>
+          </div>
 
+          <div class="flex min-h-10 flex-wrap items-center gap-2">
             <%= for tag <- @filtering_tags do %>
-              <div class="m-1 hover:text-blue-500 cursor-pointer rounded-full bg-blue-200 p-1 px-2"
+              <button type="button"
+                   class="rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700 hover:bg-sky-100"
                    phx-click="remove_filter_tag"
                    phx-value-tag={tag}>
-                <%= tag %>
-              </div>
+                <%= tag %> x
+              </button>
+            <% end %>
+            <%= if @filtering_tags == [] do %>
+              <span class="text-sm text-slate-700">No tag filters applied.</span>
             <% end %>
           </div>
         </div>
       </div>
-      <div class="col-span-2">
-        <div class="bg-blue-300 hover:text-blue-500 w-40 text-center rounded-xl m-2">
-          <%= live_patch "Create New Site", to: Routes.site_index_path(@socket, :new) %>
-        </div>
-      </div>
-    </div>
 
     <%= if @live_action in [:new, :edit] do %>
       <%= live_modal @socket, BookmarkServerWeb.SiteLive.FormComponent,
@@ -280,20 +284,61 @@ defmodule BookmarkServerWeb.SiteLive.Index do
         return_to: Routes.site_index_path(@socket, :index) %>
     <% end %>
 
-    <div id="tags" class="p-2">
+    <div id="tags" class="overflow-hidden rounded-lg border border-slate-400 bg-slate-100 shadow-sm">
       <%= if length(@sites) > 0 do %>
-      <nav class="border-t border-gray-200 m-4">
-          <ul class="flex my-2">
+        <div class="divide-y divide-slate-300">
+        <%= for site <- @sites do %>
+          <div id={"site-#{site.id}"} class="px-4 py-4 transition hover:bg-slate-200">
+            <div class="flex min-w-0 items-start gap-3">
+              <div class="flex shrink-0 items-center gap-2 text-slate-700">
+                <.link navigate={Routes.site_show_path(@socket, :show, site)} class="rounded-md p-1 hover:bg-slate-200 hover:text-sky-700" title="View">
+                  <Heroicons.information_circle class="h-5 w-5" />
+                </.link>
+                <.link patch={Routes.site_index_path(@socket, :edit, site)} class="rounded-md p-1 hover:bg-slate-200 hover:text-sky-700" title="Edit">
+                  <Heroicons.pencil class="h-5 w-5" />
+                </.link>
+                <%= link to: "#", phx_click: "delete", phx_value_id: site.id, data: [confirm: "Are you sure?"], class: "rounded-md p-1 hover:bg-red-50 hover:text-red-700", title: "Delete" do %>
+                  <Heroicons.x_mark class="h-5 w-5" />
+                <% end %>
+              </div>
+              <div class="min-w-0 flex-1">
+                  <a href={ site.url } class="block truncate text-sm font-semibold text-slate-950 hover:text-sky-700" target="_blank">
+                    <%= if site.display_name == "" do%>
+                      <%= site.url %>
+                    <% else  %>
+                      <%= site.display_name %>
+                    <% end %>
+                  </a>
+                  <div class="mt-1 truncate text-xs text-slate-700"><%= site.url %></div>
+              </div>
+            </div>
+            <div class="mt-3 flex flex-wrap items-center gap-2 pl-24">
+              <%= if length(site.tags) > 0 do %>
+                <%= for tag <- site.tags do %>
+                  <button type="button" class="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700" phx-click="add_filter_tag" phx-value-tag={tag.name}>
+                    <%= tag.name %>
+                  </button>
+                <% end %>
+              <% else %>
+                <span class="text-sm text-slate-700">No tags assigned.</span>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+        </div>
+
+      <nav class="border-t border-slate-300 px-4 py-3">
+          <ul class="flex flex-wrap items-center gap-1 text-sm">
             <li>
               <%= if @page_number <= 1 do %>
-                <a class="px-2 py-2 pointer-events-none text-gray-600"
+                <a class="pointer-events-none rounded-md px-3 py-2 font-medium text-slate-400"
                  href="#"
                  phx-click="nav"
                  phx-value-page={@page_number - 1}>
                  Previous
                 </a>
               <% else %>
-              <a class="px-2 py-2"
+              <a class="rounded-md px-3 py-2 font-medium text-slate-800 hover:bg-slate-200 hover:text-slate-950"
                  href="#"
                  phx-click="nav"
                  phx-value-page={@page_number - 1}>
@@ -305,11 +350,11 @@ defmodule BookmarkServerWeb.SiteLive.Index do
         <%= for idx <-  Enum.to_list(1..@total_pages) do %>
             <li>
             <%= if @page_number == idx do %>
-              <a class="px-2 py-2 border-b-2 hover:border-blue-200 pointer-events-none text-gray-600 border-b-2 border-blue-400" href="#" phx-click="nav" phx-value-page={idx}>
+              <a class="pointer-events-none rounded-md bg-sky-50 px-3 py-2 font-medium text-sky-700" href="#" phx-click="nav" phx-value-page={idx}>
                 <%= idx %>
               </a>
             <% else %>
-              <a class="px-2 py-2 border-b-2 hover:border-blue-200" href="#" phx-click="nav" phx-value-page={idx}>
+              <a class="rounded-md px-3 py-2 font-medium text-slate-800 hover:bg-slate-200 hover:text-slate-950" href="#" phx-click="nav" phx-value-page={idx}>
                 <%= idx %>
               </a>
             <% end %>
@@ -317,85 +362,40 @@ defmodule BookmarkServerWeb.SiteLive.Index do
         <% end %>
             <li>
               <%= if @page_number >= @total_pages do %>
-                <a class="px-2 py-2 pointer-events-none text-gray-600" href="#" phx-click="nav" phx-value-page={@page_number + 1}>
+                <a class="pointer-events-none rounded-md px-3 py-2 font-medium text-slate-400" href="#" phx-click="nav" phx-value-page={@page_number + 1}>
                 Next
               </a>
               <% else %>
-                <a class="px-2 py-2" href="#" phx-click="nav" phx-value-page={@page_number + 1}>
+                <a class="rounded-md px-3 py-2 font-medium text-slate-800 hover:bg-slate-200 hover:text-slate-950" href="#" phx-click="nav" phx-value-page={@page_number + 1}>
                   Next
                 </a>
               <% end %>
             </li>
           </ul>
         </nav>
-        <div class="bg-white p-8">
-        <%= for site <- @sites do %>
-          <div id={"site-#{site.id}"} class="bg-gray-100 hover:bg-gray-200 grid grid-cols-12">
-            <div class="col-span-1 flex p-2 justify-evenly items-center">
-              <div class="hover:text-blue-500">
-                <%= live_redirect(to: Routes.site_show_path(@socket, :show, site)) do %>
-                  <%= Heroicons.Solid.information_circle(class: "h-6 w-6") %>
-                <% end %>
-              </div>
-              <div class="hover:text-blue-500">
-                <%= live_patch to: Routes.site_index_path(@socket, :edit, site) do %>
-                  <%= Heroicons.Solid.pencil(class: "h-6 w-6") %>
-                <% end %>
-              </div>
-              <div class="hover:text-blue-500">
-                <%= link to: "#", phx_click: "delete", phx_value_id: site.id, data: [confirm: "Are you sure?"] do %>
-                  <%= Heroicons.Solid.x(class: "h-6 w-6") %>
-                <% end %>
-              </div>
-            </div>
-            <div class="col-span-5 items-center flex">
-                <a href={ site.url } class="hover:text-blue-500" target="_blank">
-                  <%= if site.display_name == "" do%>
-                    <%= site.url %>
-                  <% else  %>
-                    <%= site.display_name %>
-                  <% end %>
-                </a>
-            </div>
-            <div class="col-span-6">
-              <div class="flex items-center">
-                <%= if length(site.tags) > 0 do %>
-                  <%= for tag <- site.tags do %>
-                    <div class="m-1 hover:text-blue-500 cursor-pointer rounded-full bg-blue-200 p-1 px-2" phx-click="add_filter_tag" phx-value-tag={tag.name}>
-                      <%= tag.name %>
-                    </div>
-                  <% end %>
-                <% else %>
-                  <div class="m-1 p-1">
-                  No tags assigned.
-                  </div>
-                <% end %>
-              </div>
-            </div>
-          </div>
-        <% end %>
-        </div>
       <% else %>
-        No sites defined.
+        <div class="px-6 py-12 text-center text-sm text-slate-700">No sites defined.</div>
       <% end %>
     </div>
-    <div>
+
+    <div class="mt-6 rounded-lg border border-slate-400 bg-slate-100 p-4 shadow-sm">
+      <h2 class="text-sm font-semibold text-slate-950">Import bookmarks</h2>
       <%= for entry <- @uploads.bookmark_import.entries do %>
-      <div class="w-300">
-        <%= entry.client_name %> - <progress max="100" value={entry.progress} />
+      <div class="mt-3 text-sm text-slate-800">
+        <%= entry.client_name %> <progress class="ml-2 align-middle" max="100" value={entry.progress} />
         </div>
       <% end %>
 
       <%= for {_ref, msg} <- @uploads.bookmark_import.errors do %>
-        <%= msg %>
+        <div class="mt-3 text-sm text-red-700"><%= msg %></div>
       <% end %>
 
-      <form id="import-bookmark-form" phx-submit="upload-bookmark" phx-change="validate-upload">
-        <%= live_file_input @uploads.bookmark_import %>
-        <%= submit "Import" %>
+      <form id="import-bookmark-form" phx-submit="upload-bookmark" phx-change="validate-upload" class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <.live_file_input upload={@uploads.bookmark_import} class="block w-full text-sm text-slate-800 file:mr-4 file:rounded-md file:border-0 file:bg-slate-200 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200" />
+        <%= submit "Import", class: "rounded-md border border-slate-400 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-200" %>
       </form>
     </div>
-    </div>
+    </section>
     """
   end
 end

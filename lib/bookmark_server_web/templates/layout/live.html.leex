@@ -1,14 +1,13 @@
-<main role="main" class="ml-full mr-full">
-  <p class="alert alert-info" role="alert"
-    phx-click="lv:clear-flash"
-    phx-value-key="info"><%= live_flash(@flash, :info) %></p>
+<main role="main">
+  <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+    <p class="alert alert-info" role="alert"
+      phx-click="lv:clear-flash"
+      phx-value-key="info"><%= Phoenix.Flash.get(@flash, :info) %></p>
 
-  <p class="alert alert-danger" role="alert"
-    phx-click="lv:clear-flash"
-    phx-value-key="error"><%= live_flash(@flash, :error) %></p>
-
-  <div class="bg-gray-200 m-10">
-  <%= @inner_content %>
+    <p class="alert alert-danger" role="alert"
+      phx-click="lv:clear-flash"
+      phx-value-key="error"><%= Phoenix.Flash.get(@flash, :error) %></p>
   </div>
 
+  <%= @inner_content %>
 </main>

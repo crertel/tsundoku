@@ -19,7 +19,9 @@ defmodule BookmarkServerWeb do
 
   def controller do
     quote do
-      use Phoenix.Controller, namespace: BookmarkServerWeb
+      use Phoenix.Controller,
+        formats: [html: "View", json: "View"],
+        layouts: [html: {BookmarkServerWeb.LayoutView, :app}]
 
       import Plug.Conn
       alias BookmarkServerWeb.Router.Helpers, as: Routes
@@ -44,7 +46,7 @@ defmodule BookmarkServerWeb do
   def live_view do
     quote do
       use Phoenix.LiveView,
-        layout: {BookmarkServerWeb.LayoutView, "live.html"}
+        layout: {BookmarkServerWeb.LayoutView, :live}
 
       unquote(view_helpers())
     end
@@ -77,10 +79,12 @@ defmodule BookmarkServerWeb do
   defp view_helpers do
     quote do
       # Use all HTML functionality (forms, tags, etc)
-      use Phoenix.HTML
+      import Phoenix.HTML
+      import Phoenix.HTML.Form
+      use PhoenixHTMLHelpers
 
-      # Import LiveView helpers (live_render, live_component, live_patch, etc)
-      import Phoenix.LiveView.Helpers
+      # Import LiveView component helpers.
+      import Phoenix.Component
       import BookmarkServerWeb.LiveHelpers
 
       # Import basic rendering functionality (render, render_layout, etc)

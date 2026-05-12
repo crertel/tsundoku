@@ -12,7 +12,7 @@ defmodule BookmarkServerWeb.TagLiveTest do
   @moduletag :tags
 
   defp create_tag(_) do
-    user =  BookmarkServer.AccountsFixtures.user_fixture(confirmed: true)
+    user = BookmarkServer.AccountsFixtures.user_fixture(confirmed: true)
     {:ok, tag} = Bookmarks.create_tag(%{name: "some name", created_by_id: user.id})
 
     %{tag: tag, user: user}
@@ -24,7 +24,8 @@ defmodule BookmarkServerWeb.TagLiveTest do
     test "lists all tags", %{conn: conn, tag: tag, user: user} do
       conn = log_in_user(conn, user)
 
-      {:ok, _index_live, html} = live(conn, Routes.tag_index_path(conn, :index, page: 1, search: ""))
+      {:ok, _index_live, html} =
+        live(conn, Routes.tag_index_path(conn, :index, page: 1, search: ""))
 
       assert html =~ "Listing Tags"
       assert html =~ tag.name
@@ -46,6 +47,7 @@ defmodule BookmarkServerWeb.TagLiveTest do
 
       tag_name = "tag-#{:rand.uniform()}"
       tag_info = @create_attrs |> Map.put(:name, tag_name)
+
       {:ok, _, html} =
         index_live
         |> form("#tag-form", tag: tag_info)
@@ -60,10 +62,10 @@ defmodule BookmarkServerWeb.TagLiveTest do
       conn = log_in_user(conn, user)
       {:ok, index_live, _html} = live(conn, Routes.tag_index_path(conn, :index))
 
-      assert !is_nil( index_live |> element("#tag-#{tag.id}"))
+      assert !is_nil(index_live |> element("#tag-#{tag.id}"))
 
       assert index_live
-             |> element("#tag-#{tag.id} a[href=\"/tags/#{tag.id}/edit\"")
+             |> element("#tag-#{tag.id} a[href=\"/tags/#{tag.id}/edit\"]")
              |> render_click() =~ "Edit Tag"
 
       assert_patch(index_live, Routes.tag_index_path(conn, :edit, tag))
@@ -81,7 +83,6 @@ defmodule BookmarkServerWeb.TagLiveTest do
       assert html =~ "Tag updated successfully"
       assert html =~ "some updated name"
     end
-
 
     test "deletes tag in listing", %{conn: conn, tag: tag, user: user} do
       conn = log_in_user(conn, user)
