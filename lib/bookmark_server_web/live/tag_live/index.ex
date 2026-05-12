@@ -62,12 +62,12 @@ defmodule BookmarkServerWeb.TagLive.Index do
 
   @impl true
   def handle_event("nav", %{"page" => page}, socket) do
-    {:noreply, push_redirect(socket, to: Routes.tag_index_path(socket, :index, page: page))}
+    {:noreply, push_patch(socket, to: Routes.tag_index_path(socket, :index, page: page))}
   end
 
   def handle_event("run_search", %{"query_field" => %{"query" => search}}, socket) do
     {:noreply,
-     push_redirect(socket,
+     push_patch(socket,
        to: Routes.tag_index_path(socket, :index, page: socket.assigns.page_number, search: search)
      )}
   end
@@ -100,90 +100,83 @@ defmodule BookmarkServerWeb.TagLive.Index do
 
   @impl true
   def render(assigns) do
-    ~L"""
-    <div>
-    <div class="p-4">
-    <div class="grid grid-cols-12 items-baseline border-b-2 border-black">
-    <div class="col-span-2">
-      <h1 class="text-lg inline-block p-1">Listing Tags</h1>
-    </div>
-    <div class="col-span-8">
-      <div>
-        <form phx-change="run_search">
-          <%= text_input :query_field,
-              :query,
-              placeholder: "Search tags",
-              autofocus: true,
-              class: "w-full",
-              "phx-debounce": "500" , value: @search%>
-        </form>
-      </div>
-    </div>
-    <div class="col-span-2">
-      <div class="bg-blue-300 hover:text-blue-500 w-40 text-center rounded-xl m-2">
-        <%= live_patch "Create New Tag", to: Routes.tag_index_path(@socket, :new) %>
-      </div>
-    </div>
-    </div>
-    </div>
+    ~H"""
+    <section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 class="text-2xl font-semibold text-slate-950">Tags</h1>
+          <p class="mt-1 text-sm text-slate-700"><%= @total_entries %> saved tags</p>
+        </div>
 
-    <div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <form phx-change="run_search" class="w-full sm:w-80">
+            <%= text_input :query_field,
+                :query,
+                placeholder: "Search tags",
+                autofocus: true,
+                class: "block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200",
+                "phx-debounce": "500" , value: @search%>
+          </form>
+
+          <.link patch={Routes.tag_index_path(@socket, :new)} class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700">
+            New Tag
+          </.link>
+        </div>
+      </div>
+
     <%= if @live_action in [:new, :edit] do %>
-    <%= live_modal @socket, BookmarkServerWeb.TagLive.FormComponent,
-      id: @tag.id || :new,
-      title: @page_title,
-      action: @live_action,
-      current_user: @current_user,
-      tag: @tag,
-      return_to: Routes.tag_index_path(@socket, :index) %>
+      <%= live_modal @socket, BookmarkServerWeb.TagLive.FormComponent,
+        id: @tag.id || :new,
+        title: @page_title,
+        action: @live_action,
+        current_user: @current_user,
+        tag: @tag,
+        return_to: Routes.tag_index_path(@socket, :index) %>
     <% end %>
 
-    <div id="tags" class="p-2">
-    <%= if length(@tags) > 0 do %>
-      <nav class="border-t border-gray-200 m-4">
-        <ul class="flex my-2">
-          <li> <a class="px-2 py-2 <%= if @page_number <= 1, do: "pointer-events-none text-gray-600" %>" href="#" phx-click="nav" phx-value-page="<%= @page_number - 1 %>">Previous</a> </li>
-          <%= for idx <- Enum.to_list(1..@total_pages) do %>
-            <li > <a class="px-2 py-2 border-b-2 hover:border-blue-200<%= if @page_number == idx, do: "pointer-events-none text-gray-600 border-b-2 border-blue-400" %>" href="#" phx-click="nav" phx-value-page="<%= idx %>"><%= idx %></a> </li>
+      <div id="tags" class="overflow-hidden rounded-lg border border-slate-400 bg-slate-100 shadow-sm">
+      <%= if length(@tags) > 0 do %>
+        <div class="divide-y divide-slate-300">
+          <%= for tag <- @tags do %>
+            <div id={"tag-#{tag.id}"} class="grid gap-3 px-4 py-3 transition hover:bg-slate-200 sm:grid-cols-[7rem_1fr] sm:items-center">
+              <div class="flex items-center gap-2 text-slate-700">
+                <.link navigate={Routes.tag_show_path(@socket, :show, tag)} class="rounded-md p-1 hover:bg-slate-200 hover:text-sky-700" title="View">
+                  <Heroicons.information_circle class="h-5 w-5" />
+                </.link>
+                <.link patch={Routes.tag_index_path(@socket, :edit, tag)} class="rounded-md p-1 hover:bg-slate-200 hover:text-sky-700" title="Edit">
+                  <Heroicons.pencil class="h-5 w-5" />
+                </.link>
+                <%= link to: "#", phx_click: "delete", phx_value_id: tag.id, data: [confirm: "Are you sure?"], class: "rounded-md p-1 hover:bg-red-50 hover:text-red-700", title: "Delete" do %>
+                  <Heroicons.x_mark class="h-5 w-5" />
+                <% end %>
+              </div>
+              <div class="min-w-0">
+                <span class="inline-flex max-w-full items-center truncate rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700"><%= tag.name %></span>
+              </div>
+            </div>
           <% end %>
-          <li> <a class="px-2 py-2 <%= if @page_number >= @total_pages, do: "pointer-events-none text-gray-600" %>" href="#" phx-click="nav" phx-value-page="<%= @page_number + 1 %>">Next</a> </li>
-        </ul>
-      </nav>
-      <div class="p-8 bg-white">
-        <%= for tag <- @tags do %>
-          <div id="tag-<%= tag.id %>" class="hover:bg-gray-200 grid grid-cols-12">
-            <div class="col-span-1 flex p-2 justify-evenly items-center">
-              <div class="hover:text-blue-500">
-                <%= live_redirect to: Routes.tag_show_path(@socket, :show, tag) do %>
-                  <%= Heroicons.Solid.information_circle(class: "h-6 w-6") %>
-                <% end %>
-              </div>
-              <div class="hover:text-blue-500">
-                <%= live_patch to: Routes.tag_index_path(@socket, :edit, tag) do %>
-                  <%= Heroicons.Solid.pencil(class: "h-6 w-6") %>
-                <% end %>
-              </div>
-              <div class="hover:text-blue-500">
-                <%= link to: "#", phx_click: "delete", phx_value_id: tag.id, data: [confirm: "Are you sure?"] do %>
-                  <%= Heroicons.Solid.x(class: "h-6 w-6") %>
-                <% end %>
-              </div>
-            </div>
-            <div class="col-span-11 items-center flex">
-              <div>
-                <%= tag.name %>
-              </div>
-            </div>
-          </div>
-        <% end %>
-      </div>
-    <% else %>
-      No tags defined.
-    <% end %>
-    </div>
-    </div>
+        </div>
 
-    </div>
+        <nav class="border-t border-slate-300 px-4 py-3">
+          <ul class="flex flex-wrap items-center gap-1 text-sm">
+            <li>
+              <a class={["rounded-md px-3 py-2 font-medium text-slate-800 hover:bg-slate-200 hover:text-slate-950", @page_number <= 1 && "pointer-events-none text-slate-400 hover:bg-transparent"]} href="#" phx-click="nav" phx-value-page={@page_number - 1}>Previous</a>
+            </li>
+          <%= for idx <- Enum.to_list(1..@total_pages) do %>
+            <li>
+              <a class={["rounded-md px-3 py-2 font-medium text-slate-800 hover:bg-slate-200 hover:text-slate-950", @page_number == idx && "pointer-events-none bg-sky-50 text-sky-700"]} href="#" phx-click="nav" phx-value-page={idx}><%= idx %></a>
+            </li>
+          <% end %>
+            <li>
+              <a class={["rounded-md px-3 py-2 font-medium text-slate-800 hover:bg-slate-200 hover:text-slate-950", @page_number >= @total_pages && "pointer-events-none text-slate-400 hover:bg-transparent"]} href="#" phx-click="nav" phx-value-page={@page_number + 1}>Next</a>
+            </li>
+          </ul>
+        </nav>
+      <% else %>
+        <div class="px-6 py-12 text-center text-sm text-slate-700">No tags defined.</div>
+      <% end %>
+      </div>
+    </section>
     """
   end
 end

@@ -38,7 +38,7 @@ defmodule BookmarkServerWeb.TagLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Tag updated successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_navigate(to: socket.assigns.return_to)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}
@@ -53,7 +53,7 @@ defmodule BookmarkServerWeb.TagLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Tag created successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_navigate(to: socket.assigns.return_to)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, changeset: changeset)}
@@ -63,21 +63,28 @@ defmodule BookmarkServerWeb.TagLive.FormComponent do
   @impl true
   def render(assigns) do
     ~H"""
-    <div>
-    <h2><%= @title %></h2>
+    <div class="pr-8">
+    <div class="border-b border-slate-300 pb-4">
+      <h2 class="text-xl font-semibold text-slate-950"><%= @title %></h2>
+    </div>
 
-    <.form let={f}
+    <.form :let={f}
     for={@changeset}
     id="tag-form"
     phx-target={@myself}
     phx-change="validate"
-    phx-submit="save">
+    phx-submit="save"
+    class="mt-6 space-y-5">
 
-    <%= label f, :name %>
-    <%= text_input f, :name %>
-    <%= error_tag f, :name %>
+    <div>
+      <%= label f, :name, class: "block text-sm font-medium text-slate-700" %>
+      <%= text_input f, :name, class: "mt-2 block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" %>
+      <%= error_tag f, :name %>
+    </div>
 
-    <%= submit "Save", phx_disable_with: "Saving..." %>
+    <div class="flex justify-end border-t border-slate-300 pt-5">
+      <%= submit "Save", phx_disable_with: "Saving...", class: "rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700" %>
+    </div>
     </.form>
 
     </div>

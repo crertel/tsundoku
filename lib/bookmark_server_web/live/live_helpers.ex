@@ -1,5 +1,4 @@
 defmodule BookmarkServerWeb.LiveHelpers do
-  import Phoenix.LiveView.Helpers
   alias BookmarkServer.Accounts.User
   alias BookmarkServer.Accounts
 
@@ -19,16 +18,22 @@ defmodule BookmarkServerWeb.LiveHelpers do
   """
   def live_modal(_socket, component, opts) do
     path = Keyword.fetch!(opts, :return_to)
-    modal_opts = [id: :modal, return_to: path, component: component, opts: opts]
-    live_component(BookmarkServerWeb.ModalComponent, modal_opts)
+
+    Phoenix.Component.live_component(%{
+      module: BookmarkServerWeb.ModalComponent,
+      id: :modal,
+      return_to: path,
+      component: component,
+      opts: opts
+    })
   end
 
   def assign_defaults(session, socket) do
     socket
-    |> Phoenix.LiveView.assign_new(:current_user, fn ->
+    |> Phoenix.Component.assign_new(:current_user, fn ->
       with user_token when not is_nil(user_token) <- session["user_token"],
-      %User{} = user <- Accounts.get_user_by_session_token(user_token),
-      do: user
+           %User{} = user <- Accounts.get_user_by_session_token(user_token),
+           do: user
     end)
   end
 end

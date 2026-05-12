@@ -6,12 +6,12 @@ defmodule BookmarkServerWeb.SiteLiveTest do
   alias BookmarkServer.Bookmarks
   @moduletag :sitelive
 
-  @create_attrs %{url: "https://www.example.com", display_name: "Example dot com" }
-  @update_attrs %{url: "https://www.example2.com", display_name: "Example Two dot com" }
+  @create_attrs %{url: "https://www.example.com", display_name: "Example dot com"}
+  @update_attrs %{url: "https://www.example2.com", display_name: "Example Two dot com"}
   @invalid_attrs %{url: nil}
 
   defp create_site(_) do
-    user =  BookmarkServer.AccountsFixtures.user_fixture(confirmed: true)
+    user = BookmarkServer.AccountsFixtures.user_fixture(confirmed: true)
     {:ok, site} = Bookmarks.create_site(@create_attrs |> Map.put(:created_by_id, user.id))
     %{site: site, user: user}
   end
@@ -26,7 +26,6 @@ defmodule BookmarkServerWeb.SiteLiveTest do
       assert html =~ "Listing Sites"
       assert html =~ site.url
     end
-
 
     test "saves new site", %{conn: conn, user: user} do
       conn = log_in_user(conn, user)
@@ -55,12 +54,11 @@ defmodule BookmarkServerWeb.SiteLiveTest do
       assert html =~ site_name
     end
 
-
     test "updates site in listing", %{conn: conn, site: site, user: user} do
       conn = log_in_user(conn, user)
       {:ok, index_live, _html} = live(conn, Routes.site_index_path(conn, :index))
 
-      assert !is_nil( index_live |> element("#site-#{site.id}"))
+      assert !is_nil(index_live |> element("#site-#{site.id}"))
 
       assert index_live
              |> element("#site-#{site.id} a[href=\"/sites/#{site.id}/edit\"]")
@@ -82,7 +80,6 @@ defmodule BookmarkServerWeb.SiteLiveTest do
       assert html =~ "Example Two dot com"
     end
 
-
     test "deletes site in listing", %{conn: conn, site: site, user: user} do
       conn = log_in_user(conn, user)
       {:ok, index_live, _html} = live(conn, Routes.site_index_path(conn, :index))
@@ -102,7 +99,6 @@ defmodule BookmarkServerWeb.SiteLiveTest do
       assert html =~ "Show Site"
       assert html =~ site.url
     end
-
 
     test "updates site within modal", %{conn: conn, site: site, user: user} do
       conn = log_in_user(conn, user)

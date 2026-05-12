@@ -10,7 +10,7 @@ defmodule BookmarkServer.Bookmarks.Site do
     field :url, :string
     field :display_name, :string
 
-    many_to_many :tags, Tag,  join_through: "sites_tags", on_replace: :delete
+    many_to_many :tags, Tag, join_through: "sites_tags", on_replace: :delete
 
     belongs_to :created_by, User
 
@@ -31,8 +31,8 @@ defmodule BookmarkServer.Bookmarks.Site do
     |> put_assoc(:tags, Map.get(attrs, "tags", []))
   end
 
-  def validate_url(changeset, field, options \\ [] ) do
-    validate_change( changeset, field, fn _, url ->
+  def validate_url(changeset, field, options \\ []) do
+    validate_change(changeset, field, fn _, url ->
       if ValidUrl.validate(url), do: [], else: [{field, options[:message] || "Invalid URL"}]
     end)
   end

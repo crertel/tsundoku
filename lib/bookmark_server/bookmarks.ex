@@ -171,25 +171,29 @@ defmodule BookmarkServer.Bookmarks do
 
     q_string = "%#{search_string}%"
 
+    filtering_tags = filtering_tags |> Enum.uniq()
+
     site_query =
       from s in Site,
-        left_join: t in assoc(s, :tags),
         where: ilike(s.display_name, ^q_string),
         where: s.created_by_id == ^created_by
 
     q =
-      Enum.reduce(filtering_tags, site_query, fn tag, full_query ->
-        tag_query =
-          from s in Site,
-            join: t in assoc(s, :tags),
-            where: ^tag == t.name
+      if filtering_tags == [] do
+        site_query
+      else
+        tag_count = length(filtering_tags)
 
-        intersect(tag_query, ^full_query)
-      end)
+        from s in site_query,
+          join: t in assoc(s, :tags),
+          where: t.name in ^filtering_tags,
+          group_by: s.id,
+          having: count(t.name, :distinct) == ^tag_count
+      end
 
     final_query = q |> distinct(true)
     offset = (page_number - 1) * page_size
-    entry_count = Repo.all(final_query) |> Enum.count()
+    entry_count = Repo.one(from s in subquery(final_query), select: count(s.id))
 
     entries =
       final_query

@@ -1,10 +1,10 @@
-<div class="flex flex-row">
+<div class="flex flex-wrap items-center gap-2 text-sm">
   <%= if @current_user do %>
-    <div class="m-2"><%= @current_user.email %></div>
-    <div class="m-2"><%= link "Settings", to: Routes.user_settings_path(@conn, :edit) %></div>
-    <div class="m-2"><%= link "Log out", to: Routes.user_session_path(@conn, :delete), method: :delete %></div>
+    <div class="max-w-xs truncate rounded-md bg-slate-200 px-3 py-2 font-medium text-slate-800"><%= @current_user.email %></div>
+    <div><%= link "Settings", to: Routes.user_settings_path(@conn, :edit), class: "rounded-md px-3 py-2 font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950" %></div>
+    <div><%= link "Log out", to: Routes.user_session_path(@conn, :delete), method: :delete, class: "rounded-md px-3 py-2 font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950" %></div>
   <% else %>
-    <div class="m-2"><%= link "Register", to: Routes.user_registration_path(@conn, :new) %></div>
-    <div class="m-2"><%= link "Log in", to: Routes.user_session_path(@conn, :new) %></div>
+    <div><%= link "Register", to: Routes.user_registration_path(@conn, :new), class: "rounded-md px-3 py-2 font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950" %></div>
+    <div><%= link "Log in", to: Routes.user_session_path(@conn, :new), class: "rounded-md bg-sky-600 px-3 py-2 font-semibold text-white shadow-sm hover:bg-sky-700" %></div>
   <% end %>
 </div>

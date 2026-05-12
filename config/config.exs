@@ -31,11 +31,24 @@ config :phoenix, :json_library, Jason
 
 # Configure esbuild (the version is required)
 config :esbuild,
-  version: "0.12.18",
+  version: System.get_env("MIX_ESBUILD_VERSION", "0.25.1"),
+  path: System.get_env("MIX_ESBUILD_PATH"),
   default: [
     args: ~w(js/app.js --bundle --target=es2016 --outdir=../priv/static/assets),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
+  ]
+
+config :tailwind,
+  version: System.get_env("MIX_TAILWIND_VERSION", "3.4.17"),
+  path: System.get_env("MIX_TAILWIND_PATH"),
+  default: [
+    args: ~w(
+      --config=tailwind.config.js
+      --input=css/app.css
+      --output=../priv/static/assets/app.css
+    ),
+    cd: Path.expand("../assets", __DIR__)
   ]
 
 # Import environment specific config. This must remain at the bottom

@@ -96,7 +96,7 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Site updated successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_navigate(to: socket.assigns.return_to)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :changeset, changeset)}
@@ -111,7 +111,7 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
         {:noreply,
          socket
          |> put_flash(:info, "Site created successfully")
-         |> push_redirect(to: socket.assigns.return_to)}
+         |> push_navigate(to: socket.assigns.return_to)}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, changeset: changeset)}
@@ -120,95 +120,81 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
 
   @impl true
   def render(assigns) do
+    assigns = assign(assigns, :tag_list_id, "site-form-tag-list-#{assigns.id}")
+
     ~H"""
-    <div>
-    <div class="border-black border-b-2">
-    <h2 class="text-xl"><%= @title %></h2>
+    <div class="pr-8">
+    <div class="border-b border-slate-300 pb-4">
+    <h2 class="text-xl font-semibold text-slate-950"><%= @title %></h2>
     </div>
 
-    <.form let={f} for={@changeset}
-    id="site-form",
+    <.form :let={f} for={@changeset}
+    id="site-form"
     phx-target={@myself}
     phx-change="validate"
-    phx-submit="save">
+    phx-submit="save"
+    class="mt-6 space-y-5">
 
-    <div class="m-4 grid grid-cols-6 gap-4">
-    <div class="text-right">
-      <%= label f, :url, class: "font-extrabold" do %> URL <% end %>
-    </div>
-    <div class="col-span-4">
-        <%= text_input f, :url, class: "border w-full"%>
-    </div>
-    <div class="col-span-1 mt-4">
+    <div>
+      <%= label f, :url, class: "block text-sm font-medium text-slate-700" do %> URL <% end %>
+        <%= text_input f, :url, class: "mt-2 block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"%>
         <%= error_tag f, :url %>
     </div>
-    </div>
 
-    <div class="m-4 grid grid-cols-6 gap-4">
-    <div class="text-right">
-      <%= label f, :display_name, class: "font-extrabold" do %> Display name <% end %>
-    </div>
-    <div class="col-span-4">
-        <%= text_input f, :display_name, class: "border w-full"%>
-    </div>
-    <div class="col-span-1 mt-4">
+    <div>
+      <%= label f, :display_name, class: "block text-sm font-medium text-slate-700" do %> Display name <% end %>
+        <%= text_input f, :display_name, class: "mt-2 block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"%>
         <%= error_tag f, :display_name %>
     </div>
-    </div>
 
-    <div class="m-4 grid grid-cols-6 gap-4">
-    <div class="text-right">
-      <div class="font-extrabold">
+    <div>
+      <div class="text-sm font-medium text-slate-700">
         Tags
       </div>
-    </div>
-    <div class="col-span-5">
+    <div class="mt-2">
       <%= if length(@active_tags) > 0 do%>
-        <div class="flex">
+        <div class="flex flex-wrap gap-2">
         <%= for tag <- @active_tags do %>
-          <div class="m-1 p-1 px-2 bg-gray-400 rounded-full">
-            <div class="inline-block px-1 cursor-pointer bg-pink-300 rounded-full text-red-700"
+          <div class="inline-flex items-center gap-2 rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700">
+            <button type="button" class="rounded-full text-red-600 hover:text-red-800"
                  phx-value-tid={tag.id}
                  phx-click="remove_tag"
                  phx-target={@myself}>
-              X
-            </div>
+              x
+            </button>
             <%= tag.name %>
           </div>
         <% end %>
         </div>
       <% else %>
-        No tags.
+        <span class="text-sm text-slate-700">No tags.</span>
       <% end %>
     </div>
     </div>
 
-    <div class="m-4 grid grid-cols-6 gap-4">
-    <div class="text-right">
-      <%= label f, :tag, list: "tag_list", class: "font-extrabold" do %>
+    <div>
+      <%= label f, :tag, list: @tag_list_id, class: "block text-sm font-medium text-slate-700" do %>
         Add tag
       <% end %>
-    </div>
-    <div class="col-span-5 grid grid-cols-2">
+    <div class="mt-2 flex flex-col gap-3 sm:flex-row">
       <input value={@new_tag}
              type="text"
-             list="tag_list"
+             list={@tag_list_id}
              phx-blur="create_tag_input"
              phx-keyup="create_tag_input"
              phx-target={@myself}
-             class="border">
-      <datalist id="tag_list" class="h-12 overflow-y-scroll">
+             class="block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200">
+      <datalist id={@tag_list_id} class="h-12 overflow-y-scroll">
         <%= for tag <- @available_tags do %>
           <option value={tag.name}/>
         <% end %>
       </datalist>
-      <a href="#" class="bg-blue-300 p-2 rounded-xl" phx-click="add_tag" phx-target={@myself}> + Add Tag </a>
+      <a href="#" class="inline-flex items-center justify-center rounded-md border border-slate-400 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-200" phx-click="add_tag" phx-target={@myself}>Add tag</a>
     </div>
     </div>
-    <%= inspect @current_user %>
 
-    <div class="grid justify-end">
-    <%= submit "Save", phx_disable_with: "Saving...", class: "bg-blue-300 p-2 rounded-xl m-4"%>
+    <div class="flex justify-end border-t border-slate-300 pt-5">
+    <%= submit "Save", phx_disable_with: "Saving...", class: "rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"%>
     </div>
     </.form>
     </div>
