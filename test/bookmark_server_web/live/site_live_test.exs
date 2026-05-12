@@ -27,6 +27,31 @@ defmodule BookmarkServerWeb.SiteLiveTest do
       assert html =~ site.url
     end
 
+    test "suggests quoted and unquoted tag search completions", %{conn: conn, user: user} do
+      {:ok, _physics_tag} =
+        Bookmarks.create_tag(%{name: "Physics Engine", created_by_id: user.id})
+
+      {:ok, _business_tag} = Bookmarks.create_tag(%{name: "business", created_by_id: user.id})
+
+      conn = log_in_user(conn, user)
+
+      {:ok, _index_live, html} = live(conn, Routes.site_index_path(conn, :index, q: "tag:ph"))
+      assert html =~ ~s(value="tag:&quot;Physics Engine&quot;")
+
+      {:ok, _index_live, html} = live(conn, Routes.site_index_path(conn, :index, q: ~s(tag:"Bu)))
+      assert html =~ ~s(value="tag:business")
+
+      {:ok, _index_live, html} =
+        live(conn, Routes.site_index_path(conn, :index, q: ~s(tag:"business")))
+
+      assert html =~ ~s(value="tag:business")
+
+      {:ok, _index_live, html} =
+        live(conn, Routes.site_index_path(conn, :index, q: ~s(tag:"Physics Engine")))
+
+      assert html =~ ~s(value="tag:&quot;Physics Engine&quot;")
+    end
+
     test "saves new site", %{conn: conn, user: user} do
       conn = log_in_user(conn, user)
 

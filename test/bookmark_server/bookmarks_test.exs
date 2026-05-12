@@ -167,5 +167,103 @@ defmodule BookmarkServer.BookmarksTest do
       assert id == matching_site.id
       assert page.total_entries == 1
     end
+
+    test "search_and_paginate_sites/2 supports fielded tag domain and url terms" do
+      user = AccountsFixtures.user_fixture()
+      {:ok, elixir} = Bookmarks.create_tag(%{name: "elixir", created_by_id: user.id})
+      {:ok, docs} = Bookmarks.create_tag(%{name: "docs", created_by_id: user.id})
+
+      {:ok, matching_site} =
+        Bookmarks.create_site(%{
+          "url" => "https://docs.example.com/packages/ecto",
+          "display_name" => "Ecto docs",
+          "created_by_id" => user.id,
+          "tags" => [elixir, docs]
+        })
+
+      {:ok, _wrong_domain_site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.org/packages/ecto",
+          "display_name" => "Ecto docs mirror",
+          "created_by_id" => user.id,
+          "tags" => [elixir, docs]
+        })
+
+      {:ok, _wrong_tag_site} =
+        Bookmarks.create_site(%{
+          "url" => "https://docs.example.com/packages/phoenix",
+          "display_name" => "Phoenix docs",
+          "created_by_id" => user.id,
+          "tags" => [docs]
+        })
+
+      page =
+        Bookmarks.search_and_paginate_sites(
+          %{query: ~s(Ecto tag:elixir domain:example.com url:packages), created_by: user.id},
+          page: 1,
+          page_size: 50
+        )
+
+      assert [%Site{id: id}] = page.entries
+      assert id == matching_site.id
+      assert page.total_entries == 1
+    end
+
+    test "parse_site_query/1 supports quoted field values and aliases" do
+      assert %{
+               text: ["notes"],
+               tags: ["machine learning"],
+               domains: ["example.com"],
+               urls: ["paper"],
+               exclude_tags: ["draft"]
+             } =
+               Bookmarks.parse_site_query(
+                 ~s(notes tag:"machine learning" site:www.example.com url:paper -tag:draft)
+               )
+    end
+
+    test "parse_site_query/1 handles quoted tag values without spaces" do
+      assert %{tags: ["business"]} = Bookmarks.parse_site_query(~s(tag:"business"))
+      assert %{tags: ["physics engine"]} = Bookmarks.parse_site_query(~s(tag:"Physics Engine"))
+    end
+
+    test "list_domains/1 groups sites by normalized domain with tag counts" do
+      user = AccountsFixtures.user_fixture()
+      other_user = AccountsFixtures.user_fixture()
+      {:ok, elixir} = Bookmarks.create_tag(%{name: "elixir", created_by_id: user.id})
+      {:ok, docs} = Bookmarks.create_tag(%{name: "docs", created_by_id: user.id})
+
+      {:ok, _first_site} =
+        Bookmarks.create_site(%{
+          "url" => "https://www.example.com/articles",
+          "display_name" => "Example articles",
+          "created_by_id" => user.id,
+          "tags" => [elixir, docs]
+        })
+
+      {:ok, _second_site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/reference",
+          "display_name" => "Example reference",
+          "created_by_id" => user.id,
+          "tags" => [docs]
+        })
+
+      {:ok, _other_site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.org/reference",
+          "display_name" => "Other user's reference",
+          "created_by_id" => other_user.id,
+          "tags" => []
+        })
+
+      assert [
+               %{
+                 domain: "example.com",
+                 count: 2,
+                 tags: [%{name: "docs", count: 2}, %{name: "elixir", count: 1}]
+               }
+             ] = Bookmarks.list_domains(user.id)
+    end
   end
 end

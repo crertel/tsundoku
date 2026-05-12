@@ -10,8 +10,10 @@ defmodule BookmarkServerWeb.SiteLive.Index do
      assign_defaults(session, socket)
      |> assign(
        uploaded_files: [],
-       filtering_tags: [],
        available_tags: [],
+       available_domains: [],
+       parsed_query: Bookmarks.parse_site_query(""),
+       search_suggestions: [],
        sites: [],
        page_number: 1,
        page_size: 50,
@@ -46,17 +48,19 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
+    query = params["q"] || legacy_query(params)
+
     assigns =
       get_and_assign_page(
         params["page"] || 1,
-        params["search"] || "",
-        params["tags"] || [],
+        query,
         socket.assigns.current_user.id
       )
 
     socket
     |> assign(:page_title, "Listing Sites")
-    |> assign(:available_tags, BookmarkServer.Bookmarks.list_tags() |> Enum.map(& &1.name))
+    |> assign(:available_tags, Bookmarks.list_tags() |> Enum.map(& &1.name))
+    |> assign(:available_domains, Bookmarks.list_domain_names(socket.assigns.current_user.id))
     |> assign(:site, nil)
     |> assign(assigns)
   end
@@ -70,7 +74,6 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       get_and_assign_page(
         socket.assigns.page_number,
         socket.assigns.search,
-        socket.assigns.filtering_tags,
         socket.assigns.current_user.id
       )
 
@@ -95,7 +98,6 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       get_and_assign_page(
         socket.assigns.page_number,
         socket.assigns.search,
-        socket.assigns.filtering_tags,
         socket.assigns.current_user.id
       )
 
@@ -109,8 +111,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
        to:
          Routes.site_index_path(socket, :index,
            page: page,
-           search: socket.assigns.search,
-           tags: socket.assigns.filtering_tags
+           q: socket.assigns.search
          )
      )}
   end
@@ -121,18 +122,14 @@ defmodule BookmarkServerWeb.SiteLive.Index do
      push_patch(socket,
        to:
          Routes.site_index_path(socket, :index,
-           page: socket.assigns.page_number,
-           search: search,
-           tags: socket.assigns.filtering_tags
+           page: 1,
+           q: search
          )
      )}
   end
 
   @impl true
   def handle_event("add_filter_tag", %{"tag" => tag}, socket) do
-    tag_set = MapSet.new(socket.assigns.filtering_tags)
-    new_tag_set = MapSet.put(tag_set, tag) |> MapSet.to_list()
-
     {:noreply,
      socket
      |> assign(page_number: 1)
@@ -140,8 +137,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
        to:
          Routes.site_index_path(socket, :index,
            page: 1,
-           search: socket.assigns.search,
-           tags: new_tag_set
+           q: append_query_fragment(socket.assigns.search, "tag", tag)
          )
      )}
   end
@@ -151,9 +147,6 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     if suggested_tag not in socket.assigns.available_tags do
       {:noreply, socket}
     else
-      tag_set = MapSet.new(socket.assigns.filtering_tags)
-      new_tag_set = MapSet.put(tag_set, suggested_tag) |> MapSet.to_list()
-
       {:noreply,
        socket
        |> assign(page_number: 1)
@@ -161,37 +154,18 @@ defmodule BookmarkServerWeb.SiteLive.Index do
          to:
            Routes.site_index_path(socket, :index,
              page: 1,
-             search: socket.assigns.search,
-             tags: new_tag_set
+             q: append_query_fragment(socket.assigns.search, "tag", suggested_tag)
            )
        )}
     end
   end
 
-  @impl true
-  def handle_event("remove_filter_tag", %{"tag" => tag}, socket) do
-    tag_set = MapSet.new(socket.assigns.filtering_tags)
-    new_tag_set = MapSet.delete(tag_set, tag) |> MapSet.to_list()
-
-    {:noreply,
-     socket
-     |> assign(page_number: 1)
-     |> push_patch(
-       to:
-         Routes.site_index_path(socket, :index,
-           page: 1,
-           search: socket.assigns.search,
-           tags: new_tag_set
-         )
-     )}
-  end
-
-  def get_and_assign_page(page_number, search, filtering_tags, user_id) do
+  def get_and_assign_page(page_number, search, user_id) do
     search_string = String.trim(search)
+    parsed_query = Bookmarks.parse_site_query(search_string)
 
     query_params = %{
-      search_string: search_string,
-      filtering_tags: filtering_tags,
+      query: search_string,
       created_by: user_id
     }
 
@@ -209,9 +183,97 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       page_size: page_size,
       total_entries: total_entries,
       total_pages: total_pages,
-      filtering_tags: filtering_tags,
+      parsed_query: parsed_query,
       search: search_string
     ]
+  end
+
+  defp legacy_query(%{"search" => search, "tags" => tags}) when is_list(tags) do
+    [search | Enum.map(tags, &Bookmarks.query_fragment("tag", &1))]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(" ")
+  end
+
+  defp legacy_query(%{"search" => search}), do: search
+
+  defp legacy_query(%{"tags" => tags}) when is_list(tags),
+    do: Enum.map_join(tags, " ", &Bookmarks.query_fragment("tag", &1))
+
+  defp legacy_query(_params), do: ""
+
+  defp append_query_fragment(query, field, value) do
+    [String.trim(query || ""), Bookmarks.query_fragment(field, value)]
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join(" ")
+  end
+
+  defp search_suggestions(query, tags, domains) do
+    {prefix, fragment} = query_prefix_and_fragment(query)
+    normalized_fragment = String.downcase(fragment)
+
+    cond do
+      String.starts_with?(normalized_fragment, "tag:") ->
+        suggest_field(prefix, "tag", field_value_fragment(fragment, "tag"), tags)
+
+      String.starts_with?(normalized_fragment, "domain:") ->
+        suggest_field(prefix, "domain", field_value_fragment(fragment, "domain"), domains)
+
+      String.starts_with?(normalized_fragment, "site:") ->
+        suggest_field(prefix, "site", field_value_fragment(fragment, "site"), domains)
+
+      String.starts_with?(normalized_fragment, "url:") ->
+        [prefix <> "url:"]
+
+      true ->
+        field_suggestions =
+          ["tag:", "domain:", "url:"]
+          |> Enum.filter(&String.starts_with?(&1, normalized_fragment))
+          |> Enum.map(&(prefix <> &1))
+
+        value_suggestions =
+          suggest_field(prefix, "tag", fragment, tags) ++
+            suggest_field(prefix, "domain", fragment, domains)
+
+        (field_suggestions ++ value_suggestions)
+        |> Enum.uniq()
+        |> Enum.take(12)
+    end
+  end
+
+  defp query_prefix_and_fragment(query) do
+    query = query || ""
+
+    case Regex.run(~r/^(.*\s)?(\S*)$/, query) do
+      [_, nil, fragment] -> {"", fragment}
+      [_, prefix, fragment] -> {prefix, fragment}
+      _ -> {"", query}
+    end
+  end
+
+  defp field_value_fragment(fragment, field) do
+    fragment
+    |> String.split(":", parts: 2)
+    |> case do
+      [typed_field, value] ->
+        if String.downcase(typed_field) == field, do: value, else: fragment
+
+      _ ->
+        fragment
+    end
+  end
+
+  defp suggest_field(prefix, field, fragment, values) do
+    fragment =
+      fragment
+      |> String.trim()
+      |> String.trim_leading(~s("))
+      |> String.trim_trailing(~s("))
+      |> String.downcase()
+
+    values
+    |> Enum.filter(&(fragment == "" or String.contains?(String.downcase(&1), fragment)))
+    |> Enum.take(12)
+    |> Enum.map(&(prefix <> Bookmarks.query_fragment(field, &1)))
   end
 
   @impl true
@@ -228,10 +290,16 @@ defmodule BookmarkServerWeb.SiteLive.Index do
           <form phx-change="run_search" class="w-full sm:w-96">
             <%= text_input :query_field,
                 :query,
-                placeholder: "Search bookmarked sites",
+                placeholder: ~s(Search, tag:"reading", domain:example.com),
                 autofocus: true,
                 class: "block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200",
+                list: "site-search-suggestions",
                 "phx-debounce": "500" , value: @search%>
+            <datalist id="site-search-suggestions">
+              <%= for suggestion <- search_suggestions(@search, @available_tags, @available_domains) do %>
+                <option value={suggestion}/>
+              <% end %>
+            </datalist>
           </form>
 
           <.link patch={Routes.site_index_path(@socket, :new)} class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700">
@@ -241,36 +309,22 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       </div>
 
       <div class="mb-6 rounded-lg border border-slate-400 bg-slate-100 p-4 shadow-sm">
-        <div class="grid gap-3 lg:grid-cols-[18rem_1fr] lg:items-center">
-          <div>
-              <form phx-change="add_filter_tag">
-              <%= text_input :filter_tag,
-                  :tag,
-                  placeholder: "Add filtering tag",
-                  class: "block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200",
-                  list: "tag_list",
-                  "phx-debounce": "500" , value: @search%>
-              <datalist id="tag_list" class="h-12 overflow-y-scroll">
-                <%= for tag <- @available_tags do %>
-                  <option value={tag}/>
-                <% end %>
-              </datalist>
-            </form>
-          </div>
-
-          <div class="flex min-h-10 flex-wrap items-center gap-2">
-            <%= for tag <- @filtering_tags do %>
-              <button type="button"
-                   class="rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700 hover:bg-sky-100"
-                   phx-click="remove_filter_tag"
-                   phx-value-tag={tag}>
-                <%= tag %> x
-              </button>
-            <% end %>
-            <%= if @filtering_tags == [] do %>
-              <span class="text-sm text-slate-700">No tag filters applied.</span>
-            <% end %>
-          </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <%= for text <- @parsed_query.text do %>
+            <span class="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700"><%= text %></span>
+          <% end %>
+          <%= for tag <- @parsed_query.tags do %>
+            <span class="rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700">tag:<%= tag %></span>
+          <% end %>
+          <%= for domain <- @parsed_query.domains do %>
+            <span class="rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700">domain:<%= domain %></span>
+          <% end %>
+          <%= for url <- @parsed_query.urls do %>
+            <span class="rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700">url:<%= url %></span>
+          <% end %>
+          <%= if @search == "" do %>
+            <span class="text-sm text-slate-700">Use free text, <code>tag:name</code>, <code>domain:example.com</code>, or <code>url:text</code>.</span>
+          <% end %>
         </div>
       </div>
 
