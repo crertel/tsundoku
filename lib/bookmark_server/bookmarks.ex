@@ -156,59 +156,221 @@ defmodule BookmarkServer.Bookmarks do
     Repo.paginate(q, params)
   end
 
+  def list_domains(created_by) do
+    Site
+    |> where([s], s.created_by_id == ^created_by)
+    |> preload(:tags)
+    |> Repo.all()
+    |> Enum.reduce(%{}, fn site, domains ->
+      case domain_from_url(site.url) do
+        nil ->
+          domains
+
+        domain ->
+          domain_data =
+            Map.get(domains, domain, %{
+              domain: domain,
+              count: 0,
+              tags: %{}
+            })
+
+          tags =
+            Enum.reduce(site.tags, domain_data.tags, fn tag, tag_counts ->
+              Map.update(tag_counts, tag.name, 1, &(&1 + 1))
+            end)
+
+          Map.put(domains, domain, %{domain_data | count: domain_data.count + 1, tags: tags})
+      end
+    end)
+    |> Map.values()
+    |> Enum.map(fn domain ->
+      tags =
+        domain.tags
+        |> Enum.map(fn {name, count} -> %{name: name, count: count} end)
+        |> Enum.sort_by(&{String.downcase(&1.name), &1.name})
+
+      %{domain | tags: tags}
+    end)
+    |> Enum.sort_by(&{-&1.count, &1.domain})
+  end
+
+  def list_domain_names(created_by) do
+    created_by
+    |> list_domains()
+    |> Enum.map(& &1.domain)
+  end
+
+  defp domain_from_url(url) do
+    case URI.parse(url || "") do
+      %URI{host: host} when is_binary(host) ->
+        host
+        |> String.downcase()
+        |> String.replace_prefix("www.", "")
+
+      _ ->
+        nil
+    end
+  end
+
+  def parse_site_query(query) do
+    query
+    |> tokenize_site_query()
+    |> Enum.reduce(
+      %{
+        text: [],
+        tags: [],
+        domains: [],
+        urls: [],
+        exclude_tags: [],
+        exclude_domains: [],
+        exclude_urls: []
+      },
+      &parse_site_query_token/2
+    )
+  end
+
+  def search_and_paginate_sites(query_params, params \\ [])
+
+  def search_and_paginate_sites(
+        %{
+          query: query,
+          created_by: created_by
+        },
+        params
+      ) do
+    page_size = Keyword.get(params, :page_size)
+    {page_number, _} = "#{Keyword.get(params, :page, "1")}" |> Integer.parse()
+    parsed_query = parse_site_query(query)
+
+    entries =
+      Site
+      |> where([s], s.created_by_id == ^created_by)
+      |> preload(:tags)
+      |> Repo.all()
+      |> Enum.filter(&site_matches_query?(&1, parsed_query))
+
+    offset = (page_number - 1) * page_size
+    page_entries = entries |> Enum.drop(offset) |> Enum.take(page_size)
+
+    %Scrivener.Page{
+      page_size: page_size,
+      page_number: page_number,
+      entries: page_entries,
+      total_entries: length(entries),
+      total_pages: trunc(:math.ceil(length(entries) / page_size))
+    }
+  end
+
   def search_and_paginate_sites(
         %{
           search_string: search_string,
           filtering_tags: filtering_tags,
           created_by: created_by
         },
-        params \\ []
+        params
       ) do
-    page_size = Keyword.get(params, :page_size)
-    {page_number, _} = "#{Keyword.get(params, :page, "1")}" |> Integer.parse()
+    query =
+      [search_string | Enum.map(filtering_tags, &query_fragment("tag", &1))]
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.join(" ")
 
-    tags_query = from t in Tag, order_by: t.name
+    search_and_paginate_sites(%{query: query, created_by: created_by}, params)
+  end
 
-    q_string = "%#{search_string}%"
+  def query_fragment(field, value) do
+    value = to_string(value)
 
-    filtering_tags = filtering_tags |> Enum.uniq()
+    if String.contains?(value, ~s(")) or String.match?(value, ~r/\s/) do
+      ~s(#{field}:"#{String.replace(value, ~s("), ~s(\\"))}")
+    else
+      "#{field}:#{value}"
+    end
+  end
 
-    site_query =
-      from s in Site,
-        where: ilike(s.display_name, ^q_string),
-        where: s.created_by_id == ^created_by
+  defp tokenize_site_query(query) do
+    ~r/-?(?:tag|domain|site|url):"[^"]*"|-?(?:tag|domain|site|url):\S+|"[^"]*"|\S+/
+    |> Regex.scan(query || "")
+    |> List.flatten()
+  end
 
-    q =
-      if filtering_tags == [] do
-        site_query
-      else
-        tag_count = length(filtering_tags)
+  defp parse_site_query_token(token, query) do
+    case Regex.run(~r/^(-?)(tag|domain|site|url):(?:"([^"]*)"|(.+))$/, token) do
+      [_, negation, field, quoted_value] ->
+        parsed_value = normalize_query_value(quoted_value)
+        put_fielded_query_value(query, negation, field, parsed_value)
 
-        from s in site_query,
-          join: t in assoc(s, :tags),
-          where: t.name in ^filtering_tags,
-          group_by: s.id,
-          having: count(t.name, :distinct) == ^tag_count
-      end
+      [_, negation, field, quoted_value, value] ->
+        parsed_value =
+          normalize_query_value(if(quoted_value == "", do: value, else: quoted_value))
 
-    final_query = q |> distinct(true)
-    offset = (page_number - 1) * page_size
-    entry_count = Repo.one(from s in subquery(final_query), select: count(s.id))
+        put_fielded_query_value(query, negation, field, parsed_value)
 
-    entries =
-      final_query
-      |> preload(tags: ^tags_query)
-      |> offset(^offset)
-      |> limit(^page_size)
-      |> Repo.all()
+      _ ->
+        value = normalize_query_value(token)
+        if value == "", do: query, else: %{query | text: query.text ++ [String.downcase(value)]}
+    end
+  end
 
-    %Scrivener.Page{
-      page_size: page_size,
-      page_number: page_number,
-      entries: entries,
-      total_entries: entry_count,
-      total_pages: trunc(:math.ceil(entry_count / page_size))
-    }
+  defp normalize_query_value(nil), do: ""
+
+  defp normalize_query_value(value) do
+    value
+    |> String.trim()
+    |> String.trim_leading(~s("))
+    |> String.trim_trailing(~s("))
+  end
+
+  defp put_fielded_query_value(query, _negation, _field, ""), do: query
+
+  defp put_fielded_query_value(query, "-", "tag", value),
+    do: %{query | exclude_tags: query.exclude_tags ++ [String.downcase(value)]}
+
+  defp put_fielded_query_value(query, "-", field, value) when field in ["domain", "site"],
+    do: %{query | exclude_domains: query.exclude_domains ++ [normalize_domain_filter(value)]}
+
+  defp put_fielded_query_value(query, "-", "url", value),
+    do: %{query | exclude_urls: query.exclude_urls ++ [String.downcase(value)]}
+
+  defp put_fielded_query_value(query, _, "tag", value),
+    do: %{query | tags: query.tags ++ [String.downcase(value)]}
+
+  defp put_fielded_query_value(query, _, field, value) when field in ["domain", "site"],
+    do: %{query | domains: query.domains ++ [normalize_domain_filter(value)]}
+
+  defp put_fielded_query_value(query, _, "url", value),
+    do: %{query | urls: query.urls ++ [String.downcase(value)]}
+
+  defp normalize_domain_filter(value) do
+    value
+    |> String.downcase()
+    |> String.replace_prefix("www.", "")
+  end
+
+  defp site_matches_query?(site, query) do
+    searchable_text =
+      [site.display_name, site.url, domain_from_url(site.url)]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" ")
+      |> String.downcase()
+
+    tag_names = Enum.map(site.tags, &String.downcase(&1.name))
+    domain = domain_from_url(site.url)
+    url = String.downcase(site.url || "")
+
+    Enum.all?(query.text, &String.contains?(searchable_text, &1)) and
+      Enum.all?(query.tags, &(&1 in tag_names)) and
+      Enum.all?(query.urls, &String.contains?(url, &1)) and
+      Enum.all?(query.domains, &domain_matches?(domain, &1)) and
+      Enum.all?(query.exclude_tags, &(&1 not in tag_names)) and
+      Enum.all?(query.exclude_urls, &(not String.contains?(url, &1))) and
+      Enum.all?(query.exclude_domains, &(not domain_matches?(domain, &1)))
+  end
+
+  defp domain_matches?(nil, _filter), do: false
+  defp domain_matches?(_domain, ""), do: true
+
+  defp domain_matches?(domain, filter) do
+    domain == filter or String.ends_with?(domain, ".#{filter}")
   end
 
   @doc """

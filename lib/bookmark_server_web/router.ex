@@ -109,6 +109,8 @@ defmodule BookmarkServerWeb.Router do
     live "/tags/:id", TagLive.Show, :show
     live "/tags/:id/show/edit", TagLive.Show, :edit
 
+    live "/domains", DomainLive.Index, :index
+
     live "/sites", SiteLive.Index, :index
     live "/sites/new", SiteLive.Index, :new
     live "/sites/:id/edit", SiteLive.Index, :edit
