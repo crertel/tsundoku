@@ -1,15 +1,15 @@
 defmodule BookmarkServerWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
-  as controllers, views, channels and so on.
+  as controllers, components, channels and so on.
 
   This can be used in your application as:
 
       use BookmarkServerWeb, :controller
-      use BookmarkServerWeb, :view
+      use BookmarkServerWeb, :html
 
-  The definitions below will be executed for every view,
-  controller, etc, so keep them short and clean, focused
+  The definitions below will be executed for every controller,
+  component, etc, so keep them short and clean, focused
   on imports, uses and aliases.
 
   Do NOT define functions inside the quoted expressions
@@ -17,38 +17,38 @@ defmodule BookmarkServerWeb do
   and import those modules here.
   """
 
+  def static_paths, do: ~w(assets css fonts images js favicon.ico robots.txt)
+
   def controller do
     quote do
       use Phoenix.Controller,
-        formats: [html: "View", json: "View"],
-        layouts: [html: {BookmarkServerWeb.LayoutView, :app}]
+        formats: [:html, :json],
+        layouts: [html: BookmarkServerWeb.Layouts]
 
       import Plug.Conn
       alias BookmarkServerWeb.Router.Helpers, as: Routes
+
+      unquote(verified_routes())
     end
   end
 
-  def view do
+  def html do
     quote do
-      use Phoenix.View,
-        root: "lib/bookmark_server_web/templates",
-        namespace: BookmarkServerWeb
+      use Phoenix.Component
 
-      # Import convenience functions from controllers
       import Phoenix.Controller,
-        only: [get_flash: 1, get_flash: 2, view_module: 1, view_template: 1]
+        only: [get_csrf_token: 0, view_module: 1, view_template: 1]
 
-      # Include shared imports and aliases for views
-      unquote(view_helpers())
+      unquote(html_helpers())
     end
   end
 
   def live_view do
     quote do
       use Phoenix.LiveView,
-        layout: {BookmarkServerWeb.LayoutView, :live}
+        layout: {BookmarkServerWeb.Layouts, :app}
 
-      unquote(view_helpers())
+      unquote(html_helpers())
     end
   end
 
@@ -56,7 +56,7 @@ defmodule BookmarkServerWeb do
     quote do
       use Phoenix.LiveComponent
 
-      unquote(view_helpers())
+      unquote(html_helpers())
     end
   end
 
@@ -76,27 +76,32 @@ defmodule BookmarkServerWeb do
     end
   end
 
-  defp view_helpers do
+  def verified_routes do
     quote do
-      # Use all HTML functionality (forms, tags, etc)
+      use Phoenix.VerifiedRoutes,
+        endpoint: BookmarkServerWeb.Endpoint,
+        router: BookmarkServerWeb.Router,
+        statics: BookmarkServerWeb.static_paths()
+    end
+  end
+
+  defp html_helpers do
+    quote do
       import Phoenix.HTML
       import Phoenix.HTML.Form
       use PhoenixHTMLHelpers
 
-      # Import LiveView component helpers.
-      import Phoenix.Component
+      import BookmarkServerWeb.CoreComponents
       import BookmarkServerWeb.LiveHelpers
 
-      # Import basic rendering functionality (render, render_layout, etc)
-      import Phoenix.View
-
-      import BookmarkServerWeb.ErrorHelpers
       alias BookmarkServerWeb.Router.Helpers, as: Routes
+
+      unquote(verified_routes())
     end
   end
 
   @doc """
-  When used, dispatch to the appropriate controller/view/etc.
+  When used, dispatch to the appropriate controller/component/etc.
   """
   defmacro __using__(which) when is_atom(which) do
     apply(__MODULE__, which, [])

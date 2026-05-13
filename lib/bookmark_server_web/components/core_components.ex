@@ -1,6 +1,6 @@
-defmodule BookmarkServerWeb.ErrorHelpers do
+defmodule BookmarkServerWeb.CoreComponents do
   @moduledoc """
-  Conveniences for translating and building error messages.
+  Shared HEEx components and helpers used across HTML modules and LiveViews.
   """
 
   import Phoenix.HTML.Form
@@ -22,8 +22,6 @@ defmodule BookmarkServerWeb.ErrorHelpers do
   Translates an error message.
   """
   def translate_error({msg, opts}) do
-    # Because the error messages we show in our forms and APIs
-    # are defined inside Ecto, we need to translate them dynamically.
     Enum.reduce(opts, msg, fn {key, value}, acc ->
       String.replace(acc, "%{#{key}}", to_string(inspect(value)))
     end)

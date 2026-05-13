@@ -9,7 +9,6 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     {:ok,
      assign_defaults(session, socket)
      |> assign(
-       uploaded_files: [],
        available_tags: [],
        available_domains: [],
        parsed_query: Bookmarks.parse_site_query(""),
@@ -21,12 +20,6 @@ defmodule BookmarkServerWeb.SiteLive.Index do
        tag_search: "",
        total_entries: 0,
        total_pages: 0
-     )
-     |> allow_upload(:bookmark_import,
-       accept: ~w(.html),
-       max_entries: 1,
-       auto_upload: true,
-       max_file_size: 32_000_000
      )}
   end
 
@@ -80,28 +73,6 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     {:noreply,
      socket
      |> assign(assigns)}
-  end
-
-  @impl true
-  def handle_event("validate-upload", _params, socket), do: {:noreply, socket}
-
-  @impl true
-  def handle_event("upload-bookmark", _params, socket) do
-    socket
-    |> consume_uploaded_entries(:bookmark_import, fn %{path: path}, _entry ->
-      {:ok, tags, urls} = BookmarkServer.Bookmarks.import_from_file(path)
-      :ok = BookmarkServer.Bookmarks.load_urls(tags, urls, socket.assigns.current_user.id)
-      {:ok, :ok}
-    end)
-
-    assigns =
-      get_and_assign_page(
-        socket.assigns.page_number,
-        socket.assigns.search,
-        socket.assigns.current_user.id
-      )
-
-    {:noreply, socket |> assign(assigns)}
   end
 
   @impl true
@@ -432,23 +403,6 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       <% end %>
     </div>
 
-    <div class="mt-6 rounded-lg border border-slate-400 bg-slate-100 p-4 shadow-sm">
-      <h2 class="text-sm font-semibold text-slate-950">Import bookmarks</h2>
-      <%= for entry <- @uploads.bookmark_import.entries do %>
-      <div class="mt-3 text-sm text-slate-800">
-        <%= entry.client_name %> <progress class="ml-2 align-middle" max="100" value={entry.progress} />
-        </div>
-      <% end %>
-
-      <%= for {_ref, msg} <- @uploads.bookmark_import.errors do %>
-        <div class="mt-3 text-sm text-red-700"><%= msg %></div>
-      <% end %>
-
-      <form id="import-bookmark-form" phx-submit="upload-bookmark" phx-change="validate-upload" class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <.live_file_input upload={@uploads.bookmark_import} class="block w-full text-sm text-slate-800 file:mr-4 file:rounded-md file:border-0 file:bg-slate-200 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200" />
-        <%= submit "Import", class: "rounded-md border border-slate-400 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-200" %>
-      </form>
-    </div>
     </section>
     """
   end
