@@ -12,8 +12,8 @@ defmodule BookmarkServerWeb.UserSessionControllerTest do
       conn = get(conn, Routes.user_session_path(conn, :new))
       response = html_response(conn, 200)
       assert response =~ "Log in</h1>"
-      assert response =~ "Log in</a>"
-      assert response =~ "Register</a>"
+      assert response =~ ~r/Log in\s*<\/a>/
+      assert response =~ ~r/Register\s*<\/a>/
     end
 
     test "redirects if already logged in", %{conn: conn, user: user} do
@@ -36,8 +36,8 @@ defmodule BookmarkServerWeb.UserSessionControllerTest do
       conn = get(conn, "/")
       response = html_response(conn, 200)
       assert response =~ user.email
-      assert response =~ "Settings</a>"
-      assert response =~ "Log out</a>"
+      assert response =~ ~r/Settings\s*<\/a>/
+      assert response =~ ~r/Log out\s*<\/a>/
     end
 
     test "logs the user in with remember me", %{conn: conn, user: user} do

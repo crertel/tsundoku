@@ -4,7 +4,7 @@ defmodule BookmarkServerWeb.UserConfirmationController do
   alias BookmarkServer.Accounts
 
   def new(conn, _params) do
-    render(conn, "new.html")
+    render(conn, :new)
   end
 
   def create(conn, %{"user" => %{"email" => email}}) do

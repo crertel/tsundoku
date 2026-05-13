@@ -7,7 +7,7 @@ defmodule BookmarkServerWeb.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, {BookmarkServerWeb.LayoutView, :root}
+    plug :put_root_layout, {BookmarkServerWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_user
@@ -110,6 +110,8 @@ defmodule BookmarkServerWeb.Router do
     live "/tags/:id/show/edit", TagLive.Show, :edit
 
     live "/domains", DomainLive.Index, :index
+
+    live "/import", ImportLive.Index, :index
 
     live "/sites", SiteLive.Index, :index
     live "/sites/new", SiteLive.Index, :new

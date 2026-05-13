@@ -17,7 +17,10 @@ config :bookmark_server, BookmarkServer.Repo, migration_timestamps: [type: :utc_
 config :bookmark_server, BookmarkServerWeb.Endpoint,
   url: [host: "localhost"],
   secret_key_base: "ztbf5nOym/gqsFjPl8HwVSiGwdQa4MKpjpsgI8u4EdyZaKBsg/WqDRIeFk9J40fm",
-  render_errors: [view: BookmarkServerWeb.ErrorView, accepts: ~w(html json), layout: false],
+  render_errors: [
+    formats: [html: BookmarkServerWeb.ErrorHTML, json: BookmarkServerWeb.ErrorJSON],
+    layout: false
+  ],
   pubsub_server: BookmarkServer.PubSub,
   live_view: [signing_salt: "MtF0gJXX"]
 

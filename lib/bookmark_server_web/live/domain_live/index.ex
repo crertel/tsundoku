@@ -28,25 +28,31 @@ defmodule BookmarkServerWeb.DomainLive.Index do
         <% else %>
           <div class="divide-y divide-slate-300">
             <%= for domain <- @domains do %>
-              <div id={"domain-#{domain.domain}"} class="px-4 py-4 transition hover:bg-slate-200">
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div class="min-w-0">
-                    <div class="truncate text-sm font-semibold text-slate-950"><%= domain.domain %></div>
-                    <div class="mt-1 text-xs text-slate-700">
-                      <%= domain.count %> <%= if domain.count == 1, do: "bookmark", else: "bookmarks" %>
-                    </div>
-                  </div>
-                  <.link navigate={Routes.site_index_path(@socket, :index, q: Bookmarks.query_fragment("domain", domain.domain))} class="rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-200">
-                    View sites
+              <div
+                id={"domain-#{domain.domain}"}
+                class="flex flex-col gap-3 px-4 py-4 transition hover:bg-slate-200 sm:flex-row sm:items-start sm:justify-between"
+              >
+                <div class="min-w-0 sm:max-w-xs">
+                  <.link
+                    navigate={Routes.site_index_path(@socket, :index, q: Bookmarks.query_fragment("domain", domain.domain))}
+                    class="block truncate text-sm font-semibold text-slate-950 hover:text-sky-700"
+                  >
+                    <%= domain.domain %>
                   </.link>
+                  <div class="mt-1 text-xs text-slate-700">
+                    <%= domain.count %> <%= if domain.count == 1, do: "bookmark", else: "bookmarks" %>
+                  </div>
                 </div>
 
-                <div class="mt-3 flex flex-wrap items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                   <%= if domain.tags == [] do %>
                     <span class="text-sm text-slate-700">No tags assigned.</span>
                   <% else %>
                     <%= for tag <- domain.tags do %>
-                      <.link navigate={Routes.site_index_path(@socket, :index, q: Bookmarks.query_fragment("tag", tag.name))} class="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700">
+                      <.link
+                        navigate={Routes.site_index_path(@socket, :index, q: domain_tag_query(domain.domain, tag.name))}
+                        class="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700"
+                      >
                         <%= tag.name %> <span class="text-slate-500"><%= tag.count %></span>
                       </.link>
                     <% end %>
@@ -59,5 +65,12 @@ defmodule BookmarkServerWeb.DomainLive.Index do
       </div>
     </section>
     """
+  end
+
+  defp domain_tag_query(domain, tag) do
+    Enum.join(
+      [Bookmarks.query_fragment("domain", domain), Bookmarks.query_fragment("tag", tag)],
+      " "
+    )
   end
 end
