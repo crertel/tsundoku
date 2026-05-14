@@ -293,6 +293,56 @@ defmodule BookmarkServer.Bookmarks do
     |> List.flatten()
   end
 
+  @doc """
+  Removes the first filter token of the given type/value from a query string.
+
+  Type is one of `"text"`, `"tag"`, `"domain"`, or `"url"`. Value comparison is
+  case-insensitive and ignores quoting. Negated filters (prefixed `-`) are not
+  considered, since the visible filter pills only show included filters.
+  """
+  def remove_filter(query, type, value) do
+    target = String.downcase(value)
+
+    query
+    |> tokenize_site_query()
+    |> Enum.reduce({[], false}, fn token, {acc, removed} ->
+      cond do
+        removed -> {[token | acc], true}
+        filter_token_matches?(token, type, target) -> {acc, true}
+        true -> {[token | acc], false}
+      end
+    end)
+    |> elem(0)
+    |> Enum.reverse()
+    |> Enum.join(" ")
+  end
+
+  defp filter_token_matches?(token, "text", target) do
+    not Regex.match?(~r/^-?(?:tag|domain|site|url):/, token) and
+      String.downcase(normalize_query_value(token)) == target
+  end
+
+  defp filter_token_matches?(token, type, target) when type in ["tag", "domain", "url"] do
+    fields = if type == "domain", do: ["domain", "site"], else: [type]
+
+    case Regex.run(~r/^(tag|domain|site|url):(?:"([^"]*)"|(.+))$/, token) do
+      [_, field, quoted] ->
+        field in fields and
+          String.downcase(normalize_query_value(quoted)) == target
+
+      [_, field, quoted, raw] ->
+        if field in fields do
+          token_value = if quoted == "", do: raw, else: quoted
+          String.downcase(normalize_query_value(token_value)) == target
+        else
+          false
+        end
+
+      _ ->
+        false
+    end
+  end
+
   defp parse_site_query_token(token, query) do
     case Regex.run(~r/^(-?)(tag|domain|site|url):(?:"([^"]*)"|(.+))$/, token) do
       [_, negation, field, quoted_value] ->

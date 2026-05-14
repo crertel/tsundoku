@@ -34,22 +34,28 @@ defmodule BookmarkServerWeb.SiteLiveTest do
       {:ok, _business_tag} = Bookmarks.create_tag(%{name: "business", created_by_id: user.id})
 
       conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, Routes.site_index_path(conn, :index))
 
-      {:ok, _index_live, html} = live(conn, Routes.site_index_path(conn, :index, q: "tag:ph"))
-      assert html =~ ~s(value="tag:&quot;Physics Engine&quot;")
+      html = view |> form("form", query_field: %{query: "tag:ph"}) |> render_change()
+      assert html =~ ~s(tag:&quot;Physics Engine&quot;)
 
-      {:ok, _index_live, html} = live(conn, Routes.site_index_path(conn, :index, q: ~s(tag:"Bu)))
-      assert html =~ ~s(value="tag:business")
+      html = view |> form("form", query_field: %{query: ~s(tag:"Bu)}) |> render_change()
+      assert html =~ "tag:business"
+    end
 
-      {:ok, _index_live, html} =
-        live(conn, Routes.site_index_path(conn, :index, q: ~s(tag:"business")))
+    test "live-updates the suggestion list as the user types", %{conn: conn, user: user} do
+      {:ok, _physics_tag} =
+        Bookmarks.create_tag(%{name: "Physics Engine", created_by_id: user.id})
 
-      assert html =~ ~s(value="tag:business")
+      conn = log_in_user(conn, user)
+      {:ok, index_live, _html} = live(conn, Routes.site_index_path(conn, :index))
 
-      {:ok, _index_live, html} =
-        live(conn, Routes.site_index_path(conn, :index, q: ~s(tag:"Physics Engine")))
+      html =
+        index_live
+        |> form("form", query_field: %{query: "tag:ph"})
+        |> render_change()
 
-      assert html =~ ~s(value="tag:&quot;Physics Engine&quot;")
+      assert html =~ ~s(tag:&quot;Physics Engine&quot;)
     end
 
     test "saves new site", %{conn: conn, user: user} do
