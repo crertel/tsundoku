@@ -3,6 +3,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
   alias BookmarkServer.Bookmarks
   alias BookmarkServer.Bookmarks.Site
+  alias Phoenix.LiveView.JS
 
   @impl true
   def mount(_params, session, socket) do
@@ -12,12 +13,11 @@ defmodule BookmarkServerWeb.SiteLive.Index do
        available_tags: [],
        available_domains: [],
        parsed_query: Bookmarks.parse_site_query(""),
-       search_suggestions: [],
+       suggestions: [],
        sites: [],
        page_number: 1,
        page_size: 50,
        search: "",
-       tag_search: "",
        total_entries: 0,
        total_pages: 0
      )}
@@ -50,12 +50,24 @@ defmodule BookmarkServerWeb.SiteLive.Index do
         socket.assigns.current_user.id
       )
 
-    socket
-    |> assign(:page_title, "Listing Sites")
-    |> assign(:available_tags, Bookmarks.list_tags() |> Enum.map(& &1.name))
-    |> assign(:available_domains, Bookmarks.list_domain_names(socket.assigns.current_user.id))
-    |> assign(:site, nil)
-    |> assign(assigns)
+    available_tags = Bookmarks.list_tags() |> Enum.map(& &1.name)
+    available_domains = Bookmarks.list_domain_names(socket.assigns.current_user.id)
+    initial_input = assigns[:parsed_query].text |> Enum.join(" ")
+
+    socket =
+      socket
+      |> assign(:page_title, "Listing Sites")
+      |> assign(:available_tags, available_tags)
+      |> assign(:available_domains, available_domains)
+      |> assign(:site, nil)
+      |> assign(assigns)
+      |> assign_new(:search_input, fn -> initial_input end)
+
+    assign(
+      socket,
+      :suggestions,
+      search_suggestions(socket.assigns.search_input, available_tags, available_domains)
+    )
   end
 
   @impl true
@@ -88,15 +100,52 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   @impl true
-  def handle_event("run_search", %{"query_field" => %{"query" => search}}, socket) do
+  def handle_event("run_search", %{"query_field" => %{"query" => text}}, socket) do
+    new_q = merge_text_and_filters(text, socket.assigns.parsed_query)
+
     {:noreply,
-     push_patch(socket,
+     socket
+     |> assign(:search_input, text)
+     |> push_patch(
        to:
          Routes.site_index_path(socket, :index,
            page: 1,
-           q: search
+           q: new_q
          )
      )}
+  end
+
+  @impl true
+  def handle_event("remove_filter", %{"type" => type, "value" => value}, socket) do
+    new_query = Bookmarks.remove_filter(socket.assigns.search, type, value)
+
+    socket =
+      if type == "text" do
+        assign(
+          socket,
+          :search_input,
+          Bookmarks.remove_filter(socket.assigns.search_input, "text", value)
+        )
+      else
+        socket
+      end
+
+    {:noreply,
+     push_patch(socket,
+       to: Routes.site_index_path(socket, :index, page: 1, q: new_query)
+     )}
+  end
+
+  @impl true
+  def handle_event("apply_suggestion", %{"query" => suggestion}, socket) do
+    new_q = merge_text_and_filters(suggestion, socket.assigns.parsed_query)
+    parsed_suggestion = Bookmarks.parse_site_query(suggestion)
+    new_input = Enum.join(parsed_suggestion.text, " ")
+
+    {:noreply,
+     socket
+     |> assign(:search_input, new_input)
+     |> push_patch(to: Routes.site_index_path(socket, :index, page: 1, q: new_q))}
   end
 
   @impl true
@@ -174,6 +223,21 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
   defp append_query_fragment(query, field, value) do
     [String.trim(query || ""), Bookmarks.query_fragment(field, value)]
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join(" ")
+  end
+
+  defp merge_text_and_filters(text, parsed) do
+    [
+      String.trim(text || ""),
+      Enum.map(parsed.tags, &Bookmarks.query_fragment("tag", &1)),
+      Enum.map(parsed.domains, &Bookmarks.query_fragment("domain", &1)),
+      Enum.map(parsed.urls, &Bookmarks.query_fragment("url", &1)),
+      Enum.map(parsed.exclude_tags, &("-" <> Bookmarks.query_fragment("tag", &1))),
+      Enum.map(parsed.exclude_domains, &("-" <> Bookmarks.query_fragment("domain", &1))),
+      Enum.map(parsed.exclude_urls, &("-" <> Bookmarks.query_fragment("url", &1)))
+    ]
+    |> List.flatten()
     |> Enum.reject(&(&1 == ""))
     |> Enum.join(" ")
   end
@@ -258,20 +322,37 @@ defmodule BookmarkServerWeb.SiteLive.Index do
         </div>
 
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <form phx-change="run_search" class="w-full sm:w-96">
-            <%= text_input :query_field,
-                :query,
-                placeholder: ~s(Search, tag:"reading", domain:example.com),
-                autofocus: true,
-                class: "block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200",
-                list: "site-search-suggestions",
-                "phx-debounce": "500" , value: @search%>
-            <datalist id="site-search-suggestions">
-              <%= for suggestion <- search_suggestions(@search, @available_tags, @available_domains) do %>
-                <option value={suggestion}/>
+          <div class="group relative w-full sm:w-96">
+            <form id="site-search-form" phx-change="run_search">
+              <input
+                type="text"
+                id="site-search-input"
+                name="query_field[query]"
+                value={@search_input}
+                placeholder={~s(Search, tag:"reading", domain:example.com)}
+                autocomplete="off"
+                autofocus
+                onkeydown="if (event.key === 'Escape') this.blur()"
+                class="block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+            </form>
+            <ul
+              :if={@search_input != "" and @suggestions != [] and @suggestions != [@search_input]}
+              class="absolute z-10 mt-1 hidden max-h-72 w-full overflow-auto rounded-md border border-slate-400 bg-slate-50 py-1 text-sm shadow-lg group-focus-within:block"
+            >
+              <%= for suggestion <- @suggestions do %>
+                <li>
+                  <button
+                    type="button"
+                    phx-click={JS.push("apply_suggestion", value: %{query: suggestion})}
+                    class="block w-full px-3 py-2 text-left text-slate-800 hover:bg-slate-200 hover:text-slate-950"
+                  >
+                    <%= suggestion %>
+                  </button>
+                </li>
               <% end %>
-            </datalist>
-          </form>
+            </ul>
+          </div>
 
           <.link patch={Routes.site_index_path(@socket, :new)} class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700">
             New Site
@@ -282,16 +363,24 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       <div class="mb-6 rounded-lg border border-slate-400 bg-slate-100 p-4 shadow-sm">
         <div class="flex flex-wrap items-center gap-2">
           <%= for text <- @parsed_query.text do %>
-            <span class="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700"><%= text %></span>
+            <.filter_pill filter_type="text" filter_value={text} color="slate">
+              <%= text %>
+            </.filter_pill>
           <% end %>
           <%= for tag <- @parsed_query.tags do %>
-            <span class="rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700">tag:<%= tag %></span>
+            <.filter_pill filter_type="tag" filter_value={tag} color="sky">
+              tag:<%= tag %>
+            </.filter_pill>
           <% end %>
           <%= for domain <- @parsed_query.domains do %>
-            <span class="rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700">domain:<%= domain %></span>
+            <.filter_pill filter_type="domain" filter_value={domain} color="sky">
+              domain:<%= domain %>
+            </.filter_pill>
           <% end %>
           <%= for url <- @parsed_query.urls do %>
-            <span class="rounded-full bg-sky-50 px-3 py-1 text-sm font-medium text-sky-700">url:<%= url %></span>
+            <.filter_pill filter_type="url" filter_value={url} color="sky">
+              url:<%= url %>
+            </.filter_pill>
           <% end %>
           <%= if @search == "" do %>
             <span class="text-sm text-slate-700">Use free text, <code>tag:name</code>, <code>domain:example.com</code>, or <code>url:text</code>.</span>
@@ -404,6 +493,39 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     </div>
 
     </section>
+    """
+  end
+
+  attr :filter_type, :string, required: true
+  attr :filter_value, :string, required: true
+  attr :color, :string, default: "slate"
+  slot :inner_block, required: true
+
+  defp filter_pill(assigns) do
+    ~H"""
+    <span class={[
+      "inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium",
+      @color == "sky" && "bg-sky-50 text-sky-700",
+      @color == "slate" && "bg-slate-200 text-slate-700"
+    ]}>
+      <span><%= render_slot(@inner_block) %></span>
+      <button
+        type="button"
+        value={@filter_value}
+        phx-click="remove_filter"
+        phx-value-type={@filter_type}
+        phx-value-value={@filter_value}
+        title="Remove filter"
+        aria-label={"Remove filter #{@filter_type}:#{@filter_value}"}
+        class={[
+          "-mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full",
+          @color == "sky" && "hover:bg-sky-100",
+          @color == "slate" && "hover:bg-slate-300"
+        ]}
+      >
+        <Heroicons.x_mark class="h-4 w-4" />
+      </button>
+    </span>
     """
   end
 end
