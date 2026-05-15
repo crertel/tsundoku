@@ -211,7 +211,8 @@ defmodule BookmarkServer.BookmarksTest do
 
     test "parse_site_query/1 supports quoted field values and aliases" do
       assert %{
-               text: ["notes"],
+               bare_phrase: "notes",
+               titles: [],
                tags: ["machine learning"],
                domains: ["example.com"],
                urls: ["paper"],
@@ -225,6 +226,70 @@ defmodule BookmarkServer.BookmarksTest do
     test "parse_site_query/1 handles quoted tag values without spaces" do
       assert %{tags: ["business"]} = Bookmarks.parse_site_query(~s(tag:"business"))
       assert %{tags: ["physics engine"]} = Bookmarks.parse_site_query(~s(tag:"Physics Engine"))
+    end
+
+    test "parse_site_query/1 collapses bare and quoted text into a single phrase" do
+      assert %{bare_phrase: "the art of programming", titles: []} =
+               Bookmarks.parse_site_query(~s(the art of programming))
+
+      assert %{bare_phrase: "this is a string", titles: []} =
+               Bookmarks.parse_site_query(~s("this is a string"))
+
+      assert %{bare_phrase: "the art of modern programming", titles: []} =
+               Bookmarks.parse_site_query(~s(the art of "modern programming"))
+    end
+
+    test "parse_site_query/1 supports title: field" do
+      assert %{bare_phrase: "", titles: ["this is a string"]} =
+               Bookmarks.parse_site_query(~s(title:"this is a string"))
+
+      assert %{bare_phrase: "extra", titles: ["foo bar"], tags: ["x"]} =
+               Bookmarks.parse_site_query(~s(extra title:"foo bar" tag:x))
+
+      assert %{exclude_titles: ["draft notes"]} =
+               Bookmarks.parse_site_query(~s(-title:"draft notes"))
+    end
+
+    test "search_sites/3 surfaces fuzzy phrase matches against the title" do
+      user = AccountsFixtures.user_fixture()
+
+      {:ok, partial} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/a",
+          "display_name" => "the art",
+          "created_by_id" => user.id,
+          "tags" => []
+        })
+
+      {:ok, full} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/b",
+          "display_name" => "the art of programming",
+          "created_by_id" => user.id,
+          "tags" => []
+        })
+
+      {:ok, offers} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/c",
+          "display_name" => "the art offers",
+          "created_by_id" => user.id,
+          "tags" => []
+        })
+
+      {:ok, _unrelated} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/d",
+          "display_name" => "cooking class",
+          "created_by_id" => user.id,
+          "tags" => []
+        })
+
+      parsed = Bookmarks.parse_site_query("the art of")
+      page = Bookmarks.search_sites(user.id, parsed, page: 1, page_size: 50)
+
+      ids = Enum.map(page.entries, & &1.id) |> MapSet.new()
+      assert MapSet.subset?(MapSet.new([partial.id, full.id, offers.id]), ids)
     end
 
     test "list_domains/1 groups sites by normalized domain with tag counts" do

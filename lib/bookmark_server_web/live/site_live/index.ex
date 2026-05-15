@@ -52,7 +52,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     page_result = Bookmarks.search_sites(user_id, parsed_query, page: page, page_size: 50)
     available_tags = Bookmarks.list_user_tag_names(user_id)
     available_domains = Bookmarks.list_user_domain_names(user_id)
-    initial_input = parsed_query.text |> Enum.join(" ")
+    initial_input = parsed_query.bare_phrase
 
     socket =
       socket
@@ -112,19 +112,25 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   @impl true
-  def handle_event("run_search", %{"query_field" => %{"query" => text}}, socket) do
-    new_q = merge_text_and_filters(text, socket.assigns.parsed_query)
+  def handle_event("update_input", %{"query_field" => %{"query" => text}}, socket) do
+    suggestions =
+      search_suggestions(text, socket.assigns.available_tags, socket.assigns.available_domains)
 
-    {:noreply,
-     socket
-     |> assign(:search_input, text)
-     |> push_patch(
-       to:
-         Routes.site_index_path(socket, :index,
-           page: 1,
-           q: new_q
-         )
-     )}
+    {:noreply, assign(socket, search_input: text, suggestions: suggestions)}
+  end
+
+  @impl true
+  def handle_event("commit_search", %{"query_field" => %{"query" => text}}, socket) do
+    case append_typed_to_query(socket.assigns.search, text) do
+      {:unchanged, _} ->
+        {:noreply, socket}
+
+      {:patched, new_q} ->
+        {:noreply,
+         socket
+         |> assign(:search_input, "")
+         |> push_patch(to: Routes.site_index_path(socket, :index, page: 1, q: new_q))}
+    end
   end
 
   @impl true
@@ -150,14 +156,16 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
   @impl true
   def handle_event("apply_suggestion", %{"query" => suggestion}, socket) do
-    new_q = merge_text_and_filters(suggestion, socket.assigns.parsed_query)
-    parsed_suggestion = Bookmarks.parse_site_query(suggestion)
-    new_input = Enum.join(parsed_suggestion.text, " ")
+    case append_typed_to_query(socket.assigns.search, suggestion) do
+      {:unchanged, _} ->
+        {:noreply, socket}
 
-    {:noreply,
-     socket
-     |> assign(:search_input, new_input)
-     |> push_patch(to: Routes.site_index_path(socket, :index, page: 1, q: new_q))}
+      {:patched, new_q} ->
+        {:noreply,
+         socket
+         |> assign(:search_input, "")
+         |> push_patch(to: Routes.site_index_path(socket, :index, page: 1, q: new_q))}
+    end
   end
 
   @impl true
@@ -211,19 +219,36 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     |> Enum.join(" ")
   end
 
-  defp merge_text_and_filters(text, parsed) do
-    [
-      String.trim(text || ""),
-      Enum.map(parsed.tags, &Bookmarks.query_fragment("tag", &1)),
-      Enum.map(parsed.domains, &Bookmarks.query_fragment("domain", &1)),
-      Enum.map(parsed.urls, &Bookmarks.query_fragment("url", &1)),
-      Enum.map(parsed.exclude_tags, &("-" <> Bookmarks.query_fragment("tag", &1))),
-      Enum.map(parsed.exclude_domains, &("-" <> Bookmarks.query_fragment("domain", &1))),
+  defp append_typed_to_query(current_q, typed) do
+    typed_tokens = typed |> Bookmarks.parse_site_query() |> serialize_as_filter_tokens()
+
+    if typed_tokens == [] do
+      {:unchanged, current_q}
+    else
+      new_q =
+        [String.trim(current_q || "") | typed_tokens]
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.join(" ")
+
+      {:patched, new_q}
+    end
+  end
+
+  defp serialize_as_filter_tokens(parsed) do
+    bare_token =
+      if parsed.bare_phrase == "",
+        do: [],
+        else: [Bookmarks.query_fragment("title", parsed.bare_phrase)]
+
+    bare_token ++
+      Enum.map(parsed.titles, &Bookmarks.query_fragment("title", &1)) ++
+      Enum.map(parsed.tags, &Bookmarks.query_fragment("tag", &1)) ++
+      Enum.map(parsed.domains, &Bookmarks.query_fragment("domain", &1)) ++
+      Enum.map(parsed.urls, &Bookmarks.query_fragment("url", &1)) ++
+      Enum.map(parsed.exclude_titles, &("-" <> Bookmarks.query_fragment("title", &1))) ++
+      Enum.map(parsed.exclude_tags, &("-" <> Bookmarks.query_fragment("tag", &1))) ++
+      Enum.map(parsed.exclude_domains, &("-" <> Bookmarks.query_fragment("domain", &1))) ++
       Enum.map(parsed.exclude_urls, &("-" <> Bookmarks.query_fragment("url", &1)))
-    ]
-    |> List.flatten()
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.join(" ")
   end
 
   defp search_suggestions(query, tags, domains) do
@@ -307,7 +332,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div class="group relative w-full sm:w-96">
-            <form id="site-search-form" phx-change="run_search">
+            <form id="site-search-form" phx-change="update_input" phx-submit="commit_search">
               <input
                 type="text"
                 id="site-search-input"
@@ -348,9 +373,9 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
       <div class="mb-6 rounded-lg border border-slate-400 bg-slate-100 p-4 shadow-sm">
         <div class="flex flex-wrap items-center gap-2">
-          <%= for text <- @parsed_query.text do %>
-            <.filter_pill filter_type="text" filter_value={text} color="slate">
-              <%= text %>
+          <%= for title <- @parsed_query.titles do %>
+            <.filter_pill filter_type="title" filter_value={title} color="slate">
+              title:<%= title %>
             </.filter_pill>
           <% end %>
           <%= for tag <- @parsed_query.tags do %>
@@ -369,7 +394,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
             </.filter_pill>
           <% end %>
           <%= if @search == "" do %>
-            <span class="text-sm text-slate-700">Use free text, <code>tag:name</code>, <code>domain:example.com</code>, or <code>url:text</code>.</span>
+            <span class="text-sm text-slate-700">Use free text (matched as a fuzzy phrase against the title), <code>tag:name</code>, <code>domain:example.com</code>, or <code>url:text</code>.</span>
           <% end %>
         </div>
       </div>
