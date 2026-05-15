@@ -121,5 +121,7 @@ defmodule BookmarkServerWeb.Router do
     live "/sites/:id/edit", SiteLive.Index, :edit
     live "/sites/:id", SiteLive.Show, :show
     live "/sites/:id/show/edit", SiteLive.Show, :edit
+
+    get "/extension", ExtensionController, :show
   end
 end

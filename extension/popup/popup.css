@@ -1,0 +1,163 @@
+:root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+body {
+  margin: 0;
+  background: #f1f5f9;
+  width: 360px;
+}
+
+.popup {
+  padding: 16px;
+}
+
+header {
+  margin-bottom: 12px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.muted {
+  color: #64748b;
+  font-size: 12px;
+  margin: 4px 0 0 0;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+label > span {
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+}
+
+input[type="text"],
+input[type="url"] {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  background: white;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+input:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px #bae6fd;
+}
+
+fieldset {
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 8px 12px 12px;
+  margin: 0;
+}
+
+legend {
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+  padding: 0 4px;
+}
+
+.tag-list {
+  list-style: none;
+  margin: 0 0 8px 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 24px;
+}
+
+.tag-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-list li button {
+  border: 0;
+  background: transparent;
+  color: #be123c;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.add-tag {
+  display: flex;
+  gap: 6px;
+}
+
+.add-tag input {
+  flex: 1;
+}
+
+button {
+  background: #0284c7;
+  color: white;
+  border: 0;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #0369a1;
+}
+
+button[type="button"]#cancel-btn,
+button[type="button"]#add-tag-btn {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+button[type="button"]#cancel-btn:hover,
+button[type="button"]#add-tag-btn:hover {
+  background: #cbd5e1;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.status {
+  min-height: 16px;
+}
+
+.status.error {
+  color: #b91c1c;
+}
+
+.status.success {
+  color: #15803d;
+}

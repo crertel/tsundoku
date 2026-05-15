@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bookmark Server — Extension Options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Bookmark Server Extension</h1>
+
+      <section>
+        <h2>Connection</h2>
+        <form id="config-form">
+          <label>
+            <span>Server URL</span>
+            <input type="url" id="server-url" placeholder="https://bookmarks.example.com" required />
+          </label>
+          <label>
+            <span>API token</span>
+            <input type="text" id="token" placeholder="paste the token from /extension on your server" required />
+          </label>
+          <div class="actions">
+            <button type="submit" id="save-config">Save</button>
+            <button type="button" id="clear-config" class="secondary">Sign out</button>
+          </div>
+          <p class="status muted" id="config-status"></p>
+        </form>
+      </section>
+
+      <section>
+        <h2>Bulk import</h2>
+        <p class="muted">
+          Upload a Netscape-format bookmarks HTML file (export from any major browser).
+          Tags are read from the folder structure.
+        </p>
+        <form id="import-form">
+          <input type="file" id="import-file" accept=".html" required />
+          <div class="actions">
+            <button type="submit" id="import-btn">Import</button>
+          </div>
+          <p class="status muted" id="import-status"></p>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

@@ -14,6 +14,14 @@ defmodule BookmarkServerWeb.Layouts do
         </div>
         <div>
           <.link
+            href={~p"/extension"}
+            class="rounded-md px-3 py-2 font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950"
+          >
+            Extension
+          </.link>
+        </div>
+        <div>
+          <.link
             href={~p"/users/settings"}
             class="rounded-md px-3 py-2 font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950"
           >

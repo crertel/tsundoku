@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Save to Bookmark Server</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header>
+        <h1 id="heading">Save bookmark</h1>
+        <p id="subheading" class="muted">Saving to your Bookmark Server.</p>
+      </header>
+
+      <section id="needs-config" hidden>
+        <p>Not signed in. <a href="#" id="open-options">Open extension options</a>.</p>
+      </section>
+
+      <form id="save-form" hidden>
+        <label>
+          <span>Title</span>
+          <input type="text" id="title-input" />
+        </label>
+
+        <label>
+          <span>URL</span>
+          <input type="url" id="url-input" readonly />
+        </label>
+
+        <fieldset>
+          <legend>Tags</legend>
+          <ul id="active-tags" class="tag-list"></ul>
+          <div class="add-tag">
+            <input type="text" id="new-tag-input" list="tag-suggestions" placeholder="Add tag" />
+            <datalist id="tag-suggestions"></datalist>
+            <button type="button" id="add-tag-btn">Add</button>
+          </div>
+        </fieldset>
+
+        <div class="status muted" id="status"></div>
+
+        <div class="actions">
+          <button type="submit" id="save-btn">Save</button>
+          <button type="button" id="cancel-btn">Cancel</button>
+        </div>
+      </form>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
