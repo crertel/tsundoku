@@ -252,4 +252,54 @@ defmodule BookmarkServerWeb.ApiController do
   def update_tag(conn, _) do
     conn |> send_resp(400, "{}") |> halt
   end
+
+  def list_tags(conn, _params) do
+    user = conn.assigns.user
+
+    tags =
+      Bookmarks.list_user_tags(user.id)
+      |> Enum.map(&%{id: &1.id, name: &1.name})
+
+    json(conn, %{tags: tags})
+  end
+
+  def find_bookmark(conn, %{"url" => url}) do
+    user = conn.assigns.user
+
+    case Bookmarks.get_user_bookmark_by_url(url, user.id) do
+      %Site{} = site ->
+        site = BookmarkServer.Repo.preload(site, :tags)
+
+        json(conn, %{
+          bookmark: %{
+            id: site.id,
+            url: site.url,
+            display_name: site.display_name,
+            tags: Enum.map(site.tags, & &1.name)
+          }
+        })
+
+      nil ->
+        conn |> put_status(404) |> json(%{}) |> halt()
+    end
+  end
+
+  def find_bookmark(conn, _), do: conn |> put_status(400) |> json(%{}) |> halt()
+
+  def import_bookmarks(conn, %{"file" => %Plug.Upload{path: path}}) do
+    user = conn.assigns.user
+
+    try do
+      {:ok, tags, urls} = Bookmarks.import_from_file(path)
+      :ok = Bookmarks.load_urls(tags, urls, user.id)
+
+      json(conn, %{tag_count: MapSet.size(tags), url_count: length(urls)})
+    rescue
+      err ->
+        {:ok, body} = Jason.encode(%{msg: inspect(err)})
+        conn |> send_resp(500, body) |> halt()
+    end
+  end
+
+  def import_bookmarks(conn, _), do: conn |> put_status(400) |> json(%{}) |> halt()
 end

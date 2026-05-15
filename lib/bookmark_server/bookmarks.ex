@@ -139,6 +139,14 @@ defmodule BookmarkServer.Bookmarks do
     Repo.get_by(Tag, name: name)
   end
 
+  @doc """
+  Looks up a site by URL, scoped to the given user. Returns `nil` if no
+  match exists. Backed by the unique `sites(url, created_by_id)` index.
+  """
+  def get_user_bookmark_by_url(url, user_id) do
+    Repo.get_by(Site, url: url, created_by_id: user_id)
+  end
+
   alias BookmarkServer.Bookmarks.Site
 
   @doc """
