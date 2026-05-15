@@ -113,7 +113,7 @@ defmodule BookmarkServerWeb.ApiController do
         new_tags =
           Enum.reduce(tags, [], fn tag, acc ->
             found_tag =
-              case Bookmarks.get_tag_by_name(tag) do
+              case Bookmarks.get_user_tag_by_name(tag, user.id) do
                 %BookmarkServer.Bookmarks.Tag{} = tag ->
                   tag
 

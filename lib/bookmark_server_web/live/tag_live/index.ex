@@ -24,9 +24,11 @@ defmodule BookmarkServerWeb.TagLive.Index do
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
+    tag = Bookmarks.get_tag!(id) |> ensure_owner!(socket.assigns.current_user)
+
     socket
     |> assign(:page_title, "Edit Tag")
-    |> assign(:tag, Bookmarks.get_tag!(id))
+    |> assign(:tag, tag)
   end
 
   defp apply_action(socket, :new, _params) do
@@ -47,7 +49,7 @@ defmodule BookmarkServerWeb.TagLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    tag = Bookmarks.get_tag!(id)
+    tag = Bookmarks.get_tag!(id) |> ensure_owner!(socket.assigns.current_user)
     {:ok, _} = Bookmarks.delete_tag(tag)
 
     assigns =

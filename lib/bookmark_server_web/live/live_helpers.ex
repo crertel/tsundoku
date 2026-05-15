@@ -36,4 +36,15 @@ defmodule BookmarkServerWeb.LiveHelpers do
            do: user
     end)
   end
+
+  @doc """
+  Asserts that the given record is owned by the user. Returns the record on
+  success; raises `Ecto.NoResultsError` on mismatch so that an attempt to
+  reach another user's record looks indistinguishable from a missing one.
+  """
+  def ensure_owner!(%{created_by_id: owner_id} = record, %User{id: owner_id}), do: record
+
+  def ensure_owner!(record, %User{}) do
+    raise Ecto.NoResultsError, queryable: record.__struct__
+  end
 end

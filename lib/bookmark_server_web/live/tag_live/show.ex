@@ -10,10 +10,12 @@ defmodule BookmarkServerWeb.TagLive.Show do
 
   @impl true
   def handle_params(%{"id" => id}, _, socket) do
+    tag = Bookmarks.get_tag!(id) |> ensure_owner!(socket.assigns.current_user)
+
     {:noreply,
      socket
      |> assign(:page_title, page_title(socket.assigns.live_action))
-     |> assign(:tag, Bookmarks.get_tag!(id))}
+     |> assign(:tag, tag)}
   end
 
   defp page_title(:show), do: "Show Tag"

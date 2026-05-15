@@ -10,20 +10,21 @@ defmodule BookmarkServer.Bookmarks do
   alias BookmarkServer.Bookmarks.Site
 
   @doc """
-  Returns the list of tags.
-
-  ## Examples
-
-      iex> list_tags()
-      [%Tag{}, ...]
-
+  Returns every tag in the system across all users. NOT scoped to the
+  current user — only use this for admin/maintenance code paths. For
+  user-facing lookups, use `list_user_tags/1` or `list_user_tag_names/1`.
   """
-  @spec list_tags() :: [Tag.t()]
-  def list_tags do
+  @spec list_global_tags() :: [Tag.t()]
+  def list_global_tags do
     Repo.all(Tag)
   end
 
-  def paginate_tags(params \\ []) do
+  @doc """
+  Paginates every tag in the system across all users. NOT scoped — see
+  `list_global_tags/0`. Use `search_and_paginate_tags/2` for user-scoped
+  pagination.
+  """
+  def paginate_global_tags(params \\ []) do
     Tag
     |> Repo.paginate(params)
   end
@@ -47,23 +48,20 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   @doc """
-  Gets a single tag.
+  Gets a single tag by id, with no ownership check.
 
-  Raises `Ecto.NoResultsError` if the Tag does not exist.
-
-  ## Examples
-
-      iex> get_tag!(123)
-      %Tag{}
-
-      iex> get_tag!(456)
-      ** (Ecto.NoResultsError)
-
+  Pair every callsite with `BookmarkServerWeb.LiveHelpers.ensure_owner!/2`
+  (or an equivalent check against `created_by_id`) so a user can't reach
+  another user's tag by guessing the UUID. Raises `Ecto.NoResultsError`
+  if the tag does not exist.
   """
   @spec get_tag!(Tag.id_t()) :: Tag.t() | no_return()
-
   def get_tag!(id), do: Repo.get!(Tag, id)
 
+  @doc """
+  Gets a single tag by id, with no ownership check. See `get_tag!/1` —
+  every callsite needs an explicit ownership check.
+  """
   def get_tag(id), do: Repo.get(Tag, id)
 
   @doc """
@@ -131,36 +129,105 @@ defmodule BookmarkServer.Bookmarks do
     Tag.changeset(tag, attrs)
   end
 
-  def get_tag_by_name(name) do
+  @doc """
+  Looks up a tag by name across all users. NOT scoped — same-name tags
+  are allowed per-user, so a global lookup can return another user's tag.
+  Prefer `get_user_tag_by_name/2` for any code path that's about to
+  associate the tag with the caller's data.
+  """
+  def get_global_tag_by_name(name) do
     Repo.get_by(Tag, name: name)
   end
 
   alias BookmarkServer.Bookmarks.Site
 
   @doc """
-  Returns the list of sites.
-
-  ## Examples
-
-      iex> list_sites()
-      [%Site{}, ...]
-
+  Returns every site in the system across all users. NOT scoped to the
+  current user — only for admin/maintenance code paths. For user-facing
+  reads, use `search_sites/3` or `list_user_sites_with_tags/1`.
   """
-  def list_sites do
+  def list_global_sites do
     q = from s in Site, preload: [:tags]
     Repo.all(q)
   end
 
-  def paginate_sites(params \\ []) do
+  @doc """
+  Paginates every site in the system across all users. NOT scoped — see
+  `list_global_sites/0`. Use `search_sites/3` for user-scoped pagination.
+  """
+  def paginate_global_sites(params \\ []) do
     q = from s in Site, preload: [:tags]
     Repo.paginate(q, params)
   end
 
+  @doc """
+  Groups a user's sites by domain with per-domain tag counts. Two indexed
+  GROUP BY queries (one for totals, one for per-tag counts) — no in-memory
+  aggregation over the full sites list.
+  """
   def list_domains(created_by) do
+    totals =
+      from(s in Site,
+        where: s.created_by_id == ^created_by and not is_nil(s.domain),
+        group_by: s.domain,
+        select: {s.domain, count(s.id)}
+      )
+      |> Repo.all()
+
+    tag_counts =
+      from(s in Site,
+        join: st in "sites_tags",
+        on: st.site_id == s.id,
+        join: t in Tag,
+        on: t.id == st.tag_id,
+        where: s.created_by_id == ^created_by and not is_nil(s.domain),
+        group_by: [s.domain, t.name],
+        select: {s.domain, t.name, count()}
+      )
+      |> Repo.all()
+
+    tags_by_domain =
+      Enum.reduce(tag_counts, %{}, fn {domain, name, count}, acc ->
+        Map.update(acc, domain, [%{name: name, count: count}], fn existing ->
+          [%{name: name, count: count} | existing]
+        end)
+      end)
+
+    totals
+    |> Enum.map(fn {domain, count} ->
+      tags =
+        tags_by_domain
+        |> Map.get(domain, [])
+        |> Enum.sort_by(&{String.downcase(&1.name), &1.name})
+
+      %{domain: domain, count: count, tags: tags}
+    end)
+    |> Enum.sort_by(&{-&1.count, &1.domain})
+  end
+
+  def list_domain_names(created_by) do
+    list_user_domain_names(created_by)
+  end
+
+  @doc """
+  Loads all of a user's sites with their tags preloaded. Use this when you
+  need to both search and aggregate (e.g., to list domains) in the same
+  request — pass the result to `search_and_paginate_loaded_sites/3` and
+  `domains_from_sites/1` to avoid duplicate database hits.
+  """
+  def list_user_sites_with_tags(created_by) do
     Site
     |> where([s], s.created_by_id == ^created_by)
     |> preload(:tags)
     |> Repo.all()
+  end
+
+  @doc """
+  Aggregates a preloaded list of sites into the same shape `list_domains/1`
+  returns.
+  """
+  def domains_from_sites(sites) do
+    sites
     |> Enum.reduce(%{}, fn site, domains ->
       case domain_from_url(site.url) do
         nil ->
@@ -194,12 +261,6 @@ defmodule BookmarkServer.Bookmarks do
     |> Enum.sort_by(&{-&1.count, &1.domain})
   end
 
-  def list_domain_names(created_by) do
-    created_by
-    |> list_domains()
-    |> Enum.map(& &1.domain)
-  end
-
   defp domain_from_url(url) do
     case URI.parse(url || "") do
       %URI{host: host} when is_binary(host) ->
@@ -229,6 +290,174 @@ defmodule BookmarkServer.Bookmarks do
     )
   end
 
+  @doc """
+  Filters and paginates a user's sites in the database. Each part of a
+  parsed query maps to a `WHERE` clause or a `sites_tags` subquery, so we
+  never load the full table to filter in memory.
+  """
+  def search_sites(user_id, parsed_query, opts \\ []) do
+    page = opts |> Keyword.get(:page, 1) |> coerce_page()
+    page_size = Keyword.get(opts, :page_size, 50)
+
+    base = from s in Site, where: s.created_by_id == ^user_id
+
+    query =
+      base
+      |> filter_by_text(parsed_query.text)
+      |> filter_by_url(parsed_query.urls, :include)
+      |> filter_by_url(parsed_query.exclude_urls, :exclude)
+      |> filter_by_domain(parsed_query.domains, :include)
+      |> filter_by_domain(parsed_query.exclude_domains, :exclude)
+      |> filter_by_tag(parsed_query.tags, :include)
+      |> filter_by_tag(parsed_query.exclude_tags, :exclude)
+
+    total_entries = Repo.aggregate(query, :count, :id)
+
+    entries =
+      query
+      |> order_by([s], desc: s.inserted_at)
+      |> preload(:tags)
+      |> limit(^page_size)
+      |> offset(^((page - 1) * page_size))
+      |> Repo.all()
+
+    total_pages =
+      if total_entries == 0, do: 0, else: trunc(:math.ceil(total_entries / page_size))
+
+    %Scrivener.Page{
+      page_size: page_size,
+      page_number: page,
+      entries: entries,
+      total_entries: total_entries,
+      total_pages: total_pages
+    }
+  end
+
+  defp coerce_page(value) when is_integer(value), do: max(value, 1)
+
+  defp coerce_page(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, _} when n >= 1 -> n
+      _ -> 1
+    end
+  end
+
+  defp coerce_page(_), do: 1
+
+  defp filter_by_text(query, []), do: query
+
+  defp filter_by_text(query, terms) do
+    Enum.reduce(terms, query, fn term, q ->
+      pattern = "%" <> escape_like(term) <> "%"
+
+      from s in q,
+        where:
+          ilike(s.display_name, ^pattern) or ilike(s.url, ^pattern) or
+            ilike(coalesce(s.domain, ""), ^pattern)
+    end)
+  end
+
+  defp filter_by_url(query, [], _direction), do: query
+
+  defp filter_by_url(query, urls, direction) do
+    Enum.reduce(urls, query, fn url, q ->
+      pattern = "%" <> escape_like(url) <> "%"
+
+      case direction do
+        :include -> from s in q, where: ilike(s.url, ^pattern)
+        :exclude -> from s in q, where: not ilike(s.url, ^pattern)
+      end
+    end)
+  end
+
+  defp filter_by_domain(query, [], _direction), do: query
+
+  defp filter_by_domain(query, domains, direction) do
+    Enum.reduce(domains, query, fn domain, q ->
+      suffix = "%." <> escape_like(domain)
+
+      case direction do
+        :include ->
+          from s in q,
+            where: s.domain == ^domain or like(s.domain, ^suffix)
+
+        :exclude ->
+          from s in q,
+            where: s.domain != ^domain and not like(coalesce(s.domain, ""), ^suffix)
+      end
+    end)
+  end
+
+  defp filter_by_tag(query, [], _direction), do: query
+
+  defp filter_by_tag(query, tag_names, direction) do
+    Enum.reduce(tag_names, query, fn name, q ->
+      subq =
+        from t in Tag,
+          join: st in "sites_tags",
+          on: st.tag_id == t.id,
+          where: fragment("lower(?)", t.name) == ^name,
+          select: st.site_id
+
+      case direction do
+        :include -> from s in q, where: s.id in subquery(subq)
+        :exclude -> from s in q, where: s.id not in subquery(subq)
+      end
+    end)
+  end
+
+  defp escape_like(value) do
+    value
+    |> String.replace("\\", "\\\\")
+    |> String.replace("%", "\\%")
+    |> String.replace("_", "\\_")
+  end
+
+  @doc """
+  Lists all distinct tag names owned by a user, sorted alphabetically.
+  Used for the search autocomplete; small query, suitable to run on each
+  render.
+  """
+  def list_user_tag_names(user_id) do
+    from(t in Tag,
+      where: t.created_by_id == ^user_id,
+      order_by: t.name,
+      select: t.name
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Lists `%Tag{}` structs owned by a user, sorted alphabetically. Used by
+  the site form's tag autocomplete.
+  """
+  def list_user_tags(user_id) do
+    from(t in Tag, where: t.created_by_id == ^user_id, order_by: t.name)
+    |> Repo.all()
+  end
+
+  @doc """
+  Fetches a tag by name, scoped to the given user. Returns `nil` if no
+  matching tag exists for that user.
+  """
+  def get_user_tag_by_name(name, user_id) do
+    Repo.get_by(Tag, name: name, created_by_id: user_id)
+  end
+
+  @doc """
+  Lists all distinct domain names across a user's sites, sorted
+  alphabetically. Uses the indexed `sites.domain` column.
+  """
+  def list_user_domain_names(user_id) do
+    from(s in Site,
+      where: s.created_by_id == ^user_id and not is_nil(s.domain),
+      distinct: true,
+      order_by: s.domain,
+      select: s.domain
+    )
+    |> Repo.all()
+  end
+
   def search_and_paginate_sites(query_params, params \\ [])
 
   def search_and_paginate_sites(
@@ -238,27 +467,9 @@ defmodule BookmarkServer.Bookmarks do
         },
         params
       ) do
-    page_size = Keyword.get(params, :page_size)
-    {page_number, _} = "#{Keyword.get(params, :page, "1")}" |> Integer.parse()
-    parsed_query = parse_site_query(query)
-
-    entries =
-      Site
-      |> where([s], s.created_by_id == ^created_by)
-      |> preload(:tags)
-      |> Repo.all()
-      |> Enum.filter(&site_matches_query?(&1, parsed_query))
-
-    offset = (page_number - 1) * page_size
-    page_entries = entries |> Enum.drop(offset) |> Enum.take(page_size)
-
-    %Scrivener.Page{
-      page_size: page_size,
-      page_number: page_number,
-      entries: page_entries,
-      total_entries: length(entries),
-      total_pages: trunc(:math.ceil(length(entries) / page_size))
-    }
+    created_by
+    |> list_user_sites_with_tags()
+    |> search_and_paginate_loaded_sites(query, params)
   end
 
   def search_and_paginate_sites(
@@ -275,6 +486,30 @@ defmodule BookmarkServer.Bookmarks do
       |> Enum.join(" ")
 
     search_and_paginate_sites(%{query: query, created_by: created_by}, params)
+  end
+
+  @doc """
+  Filters and paginates a preloaded list of sites. Use this together with
+  `list_user_sites_with_tags/1` when the same request also needs to
+  aggregate the list (e.g., domains).
+  """
+  def search_and_paginate_loaded_sites(sites, query, params) do
+    page_size = Keyword.get(params, :page_size)
+    {page_number, _} = "#{Keyword.get(params, :page, "1")}" |> Integer.parse()
+    parsed_query = parse_site_query(query)
+
+    entries = Enum.filter(sites, &site_matches_query?(&1, parsed_query))
+
+    offset = (page_number - 1) * page_size
+    page_entries = entries |> Enum.drop(offset) |> Enum.take(page_size)
+
+    %Scrivener.Page{
+      page_size: page_size,
+      page_number: page_number,
+      entries: page_entries,
+      total_entries: length(entries),
+      total_pages: trunc(:math.ceil(length(entries) / page_size))
+    }
   end
 
   def query_fragment(field, value) do
@@ -424,21 +659,19 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   @doc """
-  Gets a single site.
+  Gets a single site by id, with no ownership check.
 
-  Raises `Ecto.NoResultsError` if the Site does not exist.
-
-  ## Examples
-
-      iex> get_site!(123)
-      %Site{}
-
-      iex> get_site!(456)
-      ** (Ecto.NoResultsError)
-
+  Pair every callsite with `BookmarkServerWeb.LiveHelpers.ensure_owner!/2`
+  (or an equivalent check against `created_by_id`) so a user can't reach
+  another user's site by guessing the UUID. Raises `Ecto.NoResultsError`
+  if the site does not exist.
   """
   def get_site!(id), do: Repo.get!(Site, id)
 
+  @doc """
+  Gets a single site by id, with no ownership check. See `get_site!/1` —
+  every callsite needs an explicit ownership check.
+  """
   def get_site(id), do: Repo.get(Site, id)
 
   @spec create_site(%{optional(:__struct__) => none, optional(atom | binary) => any}) :: any

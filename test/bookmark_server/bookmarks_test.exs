@@ -20,9 +20,9 @@ defmodule BookmarkServer.BookmarksTest do
       tag
     end
 
-    test "list_tags/0 returns all tags" do
+    test "list_global_tags/0 returns all tags" do
       tag = tag_fixture()
-      assert Bookmarks.list_tags() == [tag]
+      assert Bookmarks.list_global_tags() == [tag]
     end
 
     test "get_tag!/1 returns the tag with given id" do
@@ -79,9 +79,9 @@ defmodule BookmarkServer.BookmarksTest do
       site
     end
 
-    test "list_sites/0 returns all sites" do
+    test "list_global_sites/0 returns all sites" do
       site = site_fixture()
-      assert Bookmarks.list_sites() == [site]
+      assert Bookmarks.list_global_sites() == [site]
     end
 
     test "get_site!/1 returns the site with given id" do
