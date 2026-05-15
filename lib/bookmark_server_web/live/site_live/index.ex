@@ -324,50 +324,49 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   def render(assigns) do
     ~H"""
     <section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div class="mb-6 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+      <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 class="text-2xl font-semibold text-slate-950">Sites</h1>
           <p class="mt-1 text-sm text-slate-700"><%= @total_entries %> saved bookmarks</p>
         </div>
+        <.link patch={Routes.site_index_path(@socket, :new)} class="inline-flex items-center justify-center self-start rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 sm:self-auto">
+          New Site
+        </.link>
+      </div>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div class="group relative w-full sm:w-96">
-            <form id="site-search-form" phx-change="update_input" phx-submit="commit_search">
-              <input
-                type="text"
-                id="site-search-input"
-                name="query_field[query]"
-                value={@search_input}
-                placeholder={~s(Search, tag:"reading", domain:example.com)}
-                autocomplete="off"
-                autofocus
-                onkeydown="if (event.key === 'Escape') { this.blur(); } else if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector('#site-search-suggestions button')?.focus(); }"
-                class="block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-              />
-            </form>
-            <ul
-              id="site-search-suggestions"
-              :if={@search_input != "" and @suggestions != [] and @suggestions != [@search_input]}
-              class="absolute z-10 mt-1 hidden max-h-72 w-full overflow-auto rounded-md border border-slate-400 bg-slate-50 py-1 text-sm shadow-lg group-focus-within:block"
-            >
-              <%= for suggestion <- @suggestions do %>
-                <li>
-                  <button
-                    type="button"
-                    phx-click={JS.push("apply_suggestion", value: %{query: suggestion})}
-                    onkeydown="(function(e, el){const b=Array.from(document.querySelectorAll('#site-search-suggestions button'));const i=b.indexOf(el);if(e.key==='ArrowDown'){e.preventDefault();b[i+1]?.focus();}else if(e.key==='ArrowUp'){e.preventDefault();if(i===0){document.getElementById('site-search-input').focus();}else{b[i-1].focus();}}else if(e.key==='Escape'){const inp=document.getElementById('site-search-input');inp.focus();inp.blur();}})(event,this)"
-                    class="block w-full px-3 py-2 text-left text-slate-800 hover:bg-slate-200 focus:bg-slate-200 focus:text-slate-950 focus:outline-none hover:text-slate-950"
-                  >
-                    <%= suggestion %>
-                  </button>
-                </li>
-              <% end %>
-            </ul>
-          </div>
-
-          <.link patch={Routes.site_index_path(@socket, :new)} class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700">
-            New Site
-          </.link>
+      <div class="mb-6">
+        <div class="group relative w-full">
+          <form id="site-search-form" phx-change="update_input" phx-submit="commit_search">
+            <input
+              type="text"
+              id="site-search-input"
+              name="query_field[query]"
+              value={@search_input}
+              placeholder={~s(Search, tag:"reading", domain:example.com)}
+              autocomplete="off"
+              autofocus
+              onkeydown="if (event.key === 'Escape') { this.blur(); } else if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector('#site-search-suggestions button')?.focus(); }"
+              class="block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            />
+          </form>
+          <ul
+            id="site-search-suggestions"
+            :if={@search_input != "" and @suggestions != [] and @suggestions != [@search_input]}
+            class="absolute z-10 mt-1 hidden max-h-72 w-full overflow-auto rounded-md border border-slate-400 bg-slate-50 py-1 text-sm shadow-lg group-focus-within:block"
+          >
+            <%= for suggestion <- @suggestions do %>
+              <li>
+                <button
+                  type="button"
+                  phx-click={JS.push("apply_suggestion", value: %{query: suggestion})}
+                  onkeydown="(function(e, el){const b=Array.from(document.querySelectorAll('#site-search-suggestions button'));const i=b.indexOf(el);if(e.key==='ArrowDown'){e.preventDefault();b[i+1]?.focus();}else if(e.key==='ArrowUp'){e.preventDefault();if(i===0){document.getElementById('site-search-input').focus();}else{b[i-1].focus();}}else if(e.key==='Escape'){const inp=document.getElementById('site-search-input');inp.focus();inp.blur();}})(event,this)"
+                  class="block w-full px-3 py-2 text-left text-slate-800 hover:bg-slate-200 focus:bg-slate-200 focus:text-slate-950 focus:outline-none hover:text-slate-950"
+                >
+                  <%= suggestion %>
+                </button>
+              </li>
+            <% end %>
+          </ul>
         </div>
       </div>
 
