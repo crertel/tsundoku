@@ -17,7 +17,8 @@ defmodule BookmarkServerWeb do
   and import those modules here.
   """
 
-  def static_paths, do: ~w(assets css fonts images js favicon.ico robots.txt)
+  def static_paths,
+    do: ~w(assets css fonts images js extension favicon.ico robots.txt)
 
   def controller do
     quote do
