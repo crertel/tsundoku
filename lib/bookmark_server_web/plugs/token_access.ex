@@ -5,16 +5,15 @@ defmodule BookmarkServerWeb.Plugs.TokenAccess do
   def init(default), do: default
 
   def call(conn, _) do
-    with {:get_header, [raw_header]} <- {:get_header, get_req_header(conn, "authorization")},
-         {:parse_header, ["bearer", encoded_token]} <-
-           {:parse_header, raw_header |> String.split()},
-         {:decode_token, {:ok, token}} <-
-           {:decode_token, Base.decode64(encoded_token, ignore: :whitespace)} do
-      user = Accounts.get_user_by_session_token(token)
+    with [raw_header] <- get_req_header(conn, "authorization"),
+         [scheme, encoded_token] <- String.split(raw_header, " ", parts: 2),
+         true <- String.downcase(scheme) == "bearer",
+         {:ok, token} <- Base.decode64(encoded_token, ignore: :whitespace),
+         user when not is_nil(user) <- Accounts.get_user_by_session_token(token) do
       assign(conn, :user, user)
     else
       _ ->
-        conn |> put_status(403) |> halt
+        conn |> send_resp(403, "{}") |> halt()
     end
   end
 end
