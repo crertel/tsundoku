@@ -6,7 +6,8 @@
   "permissions": ["contextMenus", "storage", "activeTab", "tabs"],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
   },
   "action": {
     "default_popup": "popup/popup.html",
