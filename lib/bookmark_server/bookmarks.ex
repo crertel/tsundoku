@@ -144,7 +144,7 @@ defmodule BookmarkServer.Bookmarks do
   @doc """
   Returns every site in the system across all users. NOT scoped to the
   current user — only for admin/maintenance code paths. For user-facing
-  reads, use `search_sites/3` or `list_user_sites_with_tags/1`.
+  reads, use `search_sites/3`.
   """
   def list_global_sites do
     q = from s in Site, preload: [:tags]
@@ -209,85 +209,30 @@ defmodule BookmarkServer.Bookmarks do
     list_user_domain_names(created_by)
   end
 
-  @doc """
-  Loads all of a user's sites with their tags preloaded. Use this when you
-  need to both search and aggregate (e.g., to list domains) in the same
-  request — pass the result to `search_and_paginate_loaded_sites/3` and
-  `domains_from_sites/1` to avoid duplicate database hits.
-  """
-  def list_user_sites_with_tags(created_by) do
-    Site
-    |> where([s], s.created_by_id == ^created_by)
-    |> preload(:tags)
-    |> Repo.all()
-  end
-
-  @doc """
-  Aggregates a preloaded list of sites into the same shape `list_domains/1`
-  returns.
-  """
-  def domains_from_sites(sites) do
-    sites
-    |> Enum.reduce(%{}, fn site, domains ->
-      case domain_from_url(site.url) do
-        nil ->
-          domains
-
-        domain ->
-          domain_data =
-            Map.get(domains, domain, %{
-              domain: domain,
-              count: 0,
-              tags: %{}
-            })
-
-          tags =
-            Enum.reduce(site.tags, domain_data.tags, fn tag, tag_counts ->
-              Map.update(tag_counts, tag.name, 1, &(&1 + 1))
-            end)
-
-          Map.put(domains, domain, %{domain_data | count: domain_data.count + 1, tags: tags})
-      end
-    end)
-    |> Map.values()
-    |> Enum.map(fn domain ->
-      tags =
-        domain.tags
-        |> Enum.map(fn {name, count} -> %{name: name, count: count} end)
-        |> Enum.sort_by(&{String.downcase(&1.name), &1.name})
-
-      %{domain | tags: tags}
-    end)
-    |> Enum.sort_by(&{-&1.count, &1.domain})
-  end
-
-  defp domain_from_url(url) do
-    case URI.parse(url || "") do
-      %URI{host: host} when is_binary(host) ->
-        host
-        |> String.downcase()
-        |> String.replace_prefix("www.", "")
-
-      _ ->
-        nil
-    end
-  end
-
   def parse_site_query(query) do
-    query
-    |> tokenize_site_query()
-    |> Enum.reduce(
-      %{
-        text: [],
-        tags: [],
-        domains: [],
-        urls: [],
-        exclude_tags: [],
-        exclude_domains: [],
-        exclude_urls: []
-      },
-      &parse_site_query_token/2
-    )
+    initial = %{
+      bare_phrase: "",
+      bare_tokens: [],
+      titles: [],
+      tags: [],
+      domains: [],
+      urls: [],
+      exclude_titles: [],
+      exclude_tags: [],
+      exclude_domains: [],
+      exclude_urls: []
+    }
+
+    parsed =
+      query
+      |> tokenize_site_query()
+      |> Enum.reduce(initial, &parse_site_query_token/2)
+
+    bare_phrase = parsed.bare_tokens |> Enum.join(" ") |> String.trim()
+
+    parsed
+    |> Map.put(:bare_phrase, bare_phrase)
+    |> Map.delete(:bare_tokens)
   end
 
   @doc """
@@ -301,9 +246,12 @@ defmodule BookmarkServer.Bookmarks do
 
     base = from s in Site, where: s.created_by_id == ^user_id
 
+    all_titles = title_filters_for(parsed_query)
+
     query =
       base
-      |> filter_by_text(parsed_query.text)
+      |> filter_by_titles(all_titles, :include)
+      |> filter_by_titles(parsed_query.exclude_titles, :exclude)
       |> filter_by_url(parsed_query.urls, :include)
       |> filter_by_url(parsed_query.exclude_urls, :exclude)
       |> filter_by_domain(parsed_query.domains, :include)
@@ -315,7 +263,7 @@ defmodule BookmarkServer.Bookmarks do
 
     entries =
       query
-      |> order_by([s], desc: s.inserted_at)
+      |> order_titles(all_titles)
       |> preload(:tags)
       |> limit(^page_size)
       |> offset(^((page - 1) * page_size))
@@ -333,6 +281,21 @@ defmodule BookmarkServer.Bookmarks do
     }
   end
 
+  defp order_titles(query, []), do: order_by(query, [s], desc: s.inserted_at)
+
+  defp order_titles(query, titles) do
+    phrase = Enum.join(titles, " ")
+
+    from s in query,
+      order_by: [
+        desc: fragment("word_similarity(lower(?), lower(?))", ^phrase, s.display_name),
+        desc: s.inserted_at
+      ]
+  end
+
+  defp title_filters_for(%{bare_phrase: "", titles: titles}), do: titles
+  defp title_filters_for(%{bare_phrase: bare, titles: titles}), do: [bare | titles]
+
   defp coerce_page(value) when is_integer(value), do: max(value, 1)
 
   defp coerce_page(value) when is_binary(value) do
@@ -344,16 +307,19 @@ defmodule BookmarkServer.Bookmarks do
 
   defp coerce_page(_), do: 1
 
-  defp filter_by_text(query, []), do: query
+  defp filter_by_titles(query, [], _direction), do: query
 
-  defp filter_by_text(query, terms) do
-    Enum.reduce(terms, query, fn term, q ->
-      pattern = "%" <> escape_like(term) <> "%"
-
+  defp filter_by_titles(query, phrases, :include) do
+    Enum.reduce(phrases, query, fn phrase, q ->
       from s in q,
-        where:
-          ilike(s.display_name, ^pattern) or ilike(s.url, ^pattern) or
-            ilike(coalesce(s.domain, ""), ^pattern)
+        where: fragment("lower(?) <% lower(?)", ^phrase, s.display_name)
+    end)
+  end
+
+  defp filter_by_titles(query, phrases, :exclude) do
+    Enum.reduce(phrases, query, fn phrase, q ->
+      from s in q,
+        where: fragment("NOT (lower(?) <% lower(?))", ^phrase, s.display_name)
     end)
   end
 
@@ -467,9 +433,8 @@ defmodule BookmarkServer.Bookmarks do
         },
         params
       ) do
-    created_by
-    |> list_user_sites_with_tags()
-    |> search_and_paginate_loaded_sites(query, params)
+    parsed = parse_site_query(query)
+    search_sites(created_by, parsed, params)
   end
 
   def search_and_paginate_sites(
@@ -488,30 +453,6 @@ defmodule BookmarkServer.Bookmarks do
     search_and_paginate_sites(%{query: query, created_by: created_by}, params)
   end
 
-  @doc """
-  Filters and paginates a preloaded list of sites. Use this together with
-  `list_user_sites_with_tags/1` when the same request also needs to
-  aggregate the list (e.g., domains).
-  """
-  def search_and_paginate_loaded_sites(sites, query, params) do
-    page_size = Keyword.get(params, :page_size)
-    {page_number, _} = "#{Keyword.get(params, :page, "1")}" |> Integer.parse()
-    parsed_query = parse_site_query(query)
-
-    entries = Enum.filter(sites, &site_matches_query?(&1, parsed_query))
-
-    offset = (page_number - 1) * page_size
-    page_entries = entries |> Enum.drop(offset) |> Enum.take(page_size)
-
-    %Scrivener.Page{
-      page_size: page_size,
-      page_number: page_number,
-      entries: page_entries,
-      total_entries: length(entries),
-      total_pages: trunc(:math.ceil(length(entries) / page_size))
-    }
-  end
-
   def query_fragment(field, value) do
     value = to_string(value)
 
@@ -523,18 +464,51 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   defp tokenize_site_query(query) do
-    ~r/-?(?:tag|domain|site|url):"[^"]*"|-?(?:tag|domain|site|url):\S+|"[^"]*"|\S+/
+    ~r/-?(?:tag|domain|site|url|title):"[^"]*"|-?(?:tag|domain|site|url|title):\S+|"[^"]*"|\S+/
     |> Regex.scan(query || "")
     |> List.flatten()
   end
 
   @doc """
-  Removes the first filter token of the given type/value from a query string.
+  Removes a filter from a query string. Type is one of `"title"`, `"tag"`,
+  `"domain"`, or `"url"`. Value comparison is case-insensitive and ignores
+  quoting. Negated filters (prefixed `-`) are not considered, since the
+  visible filter pills only show included filters.
 
-  Type is one of `"text"`, `"tag"`, `"domain"`, or `"url"`. Value comparison is
-  case-insensitive and ignores quoting. Negated filters (prefixed `-`) are not
-  considered, since the visible filter pills only show included filters.
+  For `"title"`, removes either a matching `title:VAL` token *or* the
+  collected bare tokens whose joined phrase equals the value (whichever is
+  present). For the other types, removes the first matching field token.
   """
+  def remove_filter(query, "title", value) do
+    target = String.downcase(value)
+    tokens = tokenize_site_query(query)
+
+    {field_match_index, _} =
+      tokens
+      |> Enum.with_index()
+      |> Enum.reduce({nil, false}, fn
+        {_token, _idx}, {found, true} -> {found, true}
+        {token, idx}, {nil, false} ->
+          if title_field_token_matches?(token, target),
+            do: {idx, true},
+            else: {nil, false}
+      end)
+
+    if field_match_index do
+      tokens |> List.delete_at(field_match_index) |> Enum.join(" ")
+    else
+      bare_target = bare_phrase_of(tokens) |> String.downcase()
+
+      if bare_target == target do
+        tokens
+        |> Enum.reject(&bare_token?/1)
+        |> Enum.join(" ")
+      else
+        Enum.join(tokens, " ")
+      end
+    end
+  end
+
   def remove_filter(query, type, value) do
     target = String.downcase(value)
 
@@ -552,9 +526,28 @@ defmodule BookmarkServer.Bookmarks do
     |> Enum.join(" ")
   end
 
-  defp filter_token_matches?(token, "text", target) do
-    not Regex.match?(~r/^-?(?:tag|domain|site|url):/, token) and
-      String.downcase(normalize_query_value(token)) == target
+  defp bare_token?(token), do: not Regex.match?(~r/^-?(?:tag|domain|site|url|title):/, token)
+
+  defp bare_phrase_of(tokens) do
+    tokens
+    |> Enum.filter(&bare_token?/1)
+    |> Enum.map(&normalize_query_value/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join(" ")
+  end
+
+  defp title_field_token_matches?(token, target) do
+    case Regex.run(~r/^title:(?:"([^"]*)"|(.+))$/, token) do
+      [_, quoted] ->
+        String.downcase(normalize_query_value(quoted)) == target
+
+      [_, quoted, raw] ->
+        token_value = if quoted == "", do: raw, else: quoted
+        String.downcase(normalize_query_value(token_value)) == target
+
+      _ ->
+        false
+    end
   end
 
   defp filter_token_matches?(token, type, target) when type in ["tag", "domain", "url"] do
@@ -579,7 +572,7 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   defp parse_site_query_token(token, query) do
-    case Regex.run(~r/^(-?)(tag|domain|site|url):(?:"([^"]*)"|(.+))$/, token) do
+    case Regex.run(~r/^(-?)(tag|domain|site|url|title):(?:"([^"]*)"|(.+))$/, token) do
       [_, negation, field, quoted_value] ->
         parsed_value = normalize_query_value(quoted_value)
         put_fielded_query_value(query, negation, field, parsed_value)
@@ -592,7 +585,12 @@ defmodule BookmarkServer.Bookmarks do
 
       _ ->
         value = normalize_query_value(token)
-        if value == "", do: query, else: %{query | text: query.text ++ [String.downcase(value)]}
+
+        if value == "" do
+          query
+        else
+          %{query | bare_tokens: query.bare_tokens ++ [value]}
+        end
     end
   end
 
@@ -616,6 +614,9 @@ defmodule BookmarkServer.Bookmarks do
   defp put_fielded_query_value(query, "-", "url", value),
     do: %{query | exclude_urls: query.exclude_urls ++ [String.downcase(value)]}
 
+  defp put_fielded_query_value(query, "-", "title", value),
+    do: %{query | exclude_titles: query.exclude_titles ++ [value]}
+
   defp put_fielded_query_value(query, _, "tag", value),
     do: %{query | tags: query.tags ++ [String.downcase(value)]}
 
@@ -625,37 +626,13 @@ defmodule BookmarkServer.Bookmarks do
   defp put_fielded_query_value(query, _, "url", value),
     do: %{query | urls: query.urls ++ [String.downcase(value)]}
 
+  defp put_fielded_query_value(query, _, "title", value),
+    do: %{query | titles: query.titles ++ [value]}
+
   defp normalize_domain_filter(value) do
     value
     |> String.downcase()
     |> String.replace_prefix("www.", "")
-  end
-
-  defp site_matches_query?(site, query) do
-    searchable_text =
-      [site.display_name, site.url, domain_from_url(site.url)]
-      |> Enum.reject(&is_nil/1)
-      |> Enum.join(" ")
-      |> String.downcase()
-
-    tag_names = Enum.map(site.tags, &String.downcase(&1.name))
-    domain = domain_from_url(site.url)
-    url = String.downcase(site.url || "")
-
-    Enum.all?(query.text, &String.contains?(searchable_text, &1)) and
-      Enum.all?(query.tags, &(&1 in tag_names)) and
-      Enum.all?(query.urls, &String.contains?(url, &1)) and
-      Enum.all?(query.domains, &domain_matches?(domain, &1)) and
-      Enum.all?(query.exclude_tags, &(&1 not in tag_names)) and
-      Enum.all?(query.exclude_urls, &(not String.contains?(url, &1))) and
-      Enum.all?(query.exclude_domains, &(not domain_matches?(domain, &1)))
-  end
-
-  defp domain_matches?(nil, _filter), do: false
-  defp domain_matches?(_domain, ""), do: true
-
-  defp domain_matches?(domain, filter) do
-    domain == filter or String.ends_with?(domain, ".#{filter}")
   end
 
   @doc """
