@@ -29,9 +29,11 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
+    site = Bookmarks.get_site!(id) |> ensure_owner!(socket.assigns.current_user)
+
     socket
     |> assign(:page_title, "Edit Site")
-    |> assign(:site, Bookmarks.get_site!(id))
+    |> assign(:site, site)
   end
 
   defp apply_action(socket, :new, _params) do
@@ -41,18 +43,16 @@ defmodule BookmarkServerWeb.SiteLive.Index do
   end
 
   defp apply_action(socket, :index, params) do
+    user_id = socket.assigns.current_user.id
     query = params["q"] || legacy_query(params)
+    search_string = String.trim(query)
+    parsed_query = Bookmarks.parse_site_query(search_string)
+    page = params["page"] || 1
 
-    assigns =
-      get_and_assign_page(
-        params["page"] || 1,
-        query,
-        socket.assigns.current_user.id
-      )
-
-    available_tags = Bookmarks.list_tags() |> Enum.map(& &1.name)
-    available_domains = Bookmarks.list_domain_names(socket.assigns.current_user.id)
-    initial_input = assigns[:parsed_query].text |> Enum.join(" ")
+    page_result = Bookmarks.search_sites(user_id, parsed_query, page: page, page_size: 50)
+    available_tags = Bookmarks.list_user_tag_names(user_id)
+    available_domains = Bookmarks.list_user_domain_names(user_id)
+    initial_input = parsed_query.text |> Enum.join(" ")
 
     socket =
       socket
@@ -60,7 +60,15 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       |> assign(:available_tags, available_tags)
       |> assign(:available_domains, available_domains)
       |> assign(:site, nil)
-      |> assign(assigns)
+      |> assign(
+        sites: page_result.entries,
+        page_number: page_result.page_number,
+        page_size: page_result.page_size,
+        total_entries: page_result.total_entries,
+        total_pages: page_result.total_pages,
+        parsed_query: parsed_query,
+        search: search_string
+      )
       |> assign_new(:search_input, fn -> initial_input end)
 
     assign(
@@ -72,19 +80,23 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
   @impl true
   def handle_event("delete", %{"id" => id}, socket) do
-    site = Bookmarks.get_site!(id)
+    site = Bookmarks.get_site!(id) |> ensure_owner!(socket.assigns.current_user)
     {:ok, _} = Bookmarks.delete_site(site)
 
-    assigns =
-      get_and_assign_page(
-        socket.assigns.page_number,
-        socket.assigns.search,
-        socket.assigns.current_user.id
+    page_result =
+      Bookmarks.search_sites(
+        socket.assigns.current_user.id,
+        socket.assigns.parsed_query,
+        page: socket.assigns.page_number,
+        page_size: socket.assigns.page_size
       )
 
     {:noreply,
-     socket
-     |> assign(assigns)}
+     assign(socket,
+       sites: page_result.entries,
+       total_entries: page_result.total_entries,
+       total_pages: page_result.total_pages
+     )}
   end
 
   @impl true
@@ -178,34 +190,6 @@ defmodule BookmarkServerWeb.SiteLive.Index do
            )
        )}
     end
-  end
-
-  def get_and_assign_page(page_number, search, user_id) do
-    search_string = String.trim(search)
-    parsed_query = Bookmarks.parse_site_query(search_string)
-
-    query_params = %{
-      query: search_string,
-      created_by: user_id
-    }
-
-    %{
-      entries: entries,
-      page_number: page_number,
-      page_size: page_size,
-      total_entries: total_entries,
-      total_pages: total_pages
-    } = Bookmarks.search_and_paginate_sites(query_params, page: page_number, page_size: 50)
-
-    [
-      sites: entries,
-      page_number: page_number,
-      page_size: page_size,
-      total_entries: total_entries,
-      total_pages: total_pages,
-      parsed_query: parsed_query,
-      search: search_string
-    ]
   end
 
   defp legacy_query(%{"search" => search, "tags" => tags}) when is_list(tags) do
@@ -332,11 +316,12 @@ defmodule BookmarkServerWeb.SiteLive.Index do
                 placeholder={~s(Search, tag:"reading", domain:example.com)}
                 autocomplete="off"
                 autofocus
-                onkeydown="if (event.key === 'Escape') this.blur()"
+                onkeydown="if (event.key === 'Escape') { this.blur(); } else if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector('#site-search-suggestions button')?.focus(); }"
                 class="block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
               />
             </form>
             <ul
+              id="site-search-suggestions"
               :if={@search_input != "" and @suggestions != [] and @suggestions != [@search_input]}
               class="absolute z-10 mt-1 hidden max-h-72 w-full overflow-auto rounded-md border border-slate-400 bg-slate-50 py-1 text-sm shadow-lg group-focus-within:block"
             >
@@ -345,7 +330,8 @@ defmodule BookmarkServerWeb.SiteLive.Index do
                   <button
                     type="button"
                     phx-click={JS.push("apply_suggestion", value: %{query: suggestion})}
-                    class="block w-full px-3 py-2 text-left text-slate-800 hover:bg-slate-200 hover:text-slate-950"
+                    onkeydown="(function(e, el){const b=Array.from(document.querySelectorAll('#site-search-suggestions button'));const i=b.indexOf(el);if(e.key==='ArrowDown'){e.preventDefault();b[i+1]?.focus();}else if(e.key==='ArrowUp'){e.preventDefault();if(i===0){document.getElementById('site-search-input').focus();}else{b[i-1].focus();}}else if(e.key==='Escape'){const inp=document.getElementById('site-search-input');inp.focus();inp.blur();}})(event,this)"
+                    class="block w-full px-3 py-2 text-left text-slate-800 hover:bg-slate-200 focus:bg-slate-200 focus:text-slate-950 focus:outline-none hover:text-slate-950"
                   >
                     <%= suggestion %>
                   </button>

@@ -27,11 +27,37 @@ defmodule BookmarkServerWeb.SiteLiveTest do
       assert html =~ site.url
     end
 
+    test "cannot view, edit, or delete another user's site", %{conn: conn, site: site} do
+      stranger = BookmarkServer.AccountsFixtures.user_fixture(confirmed: true)
+      conn = log_in_user(conn, stranger)
+
+      assert_raise Ecto.NoResultsError, fn ->
+        live(conn, Routes.site_show_path(conn, :show, site))
+      end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        live(conn, Routes.site_index_path(conn, :edit, site))
+      end
+
+      {:ok, index_live, _html} = live(conn, Routes.site_index_path(conn, :index))
+      Process.flag(:trap_exit, true)
+      catch_exit(render_hook(index_live, :delete, %{"id" => site.id}))
+      assert Bookmarks.get_site(site.id) != nil
+    end
+
     test "suggests quoted and unquoted tag search completions", %{conn: conn, user: user} do
-      {:ok, _physics_tag} =
+      {:ok, physics_tag} =
         Bookmarks.create_tag(%{name: "Physics Engine", created_by_id: user.id})
 
-      {:ok, _business_tag} = Bookmarks.create_tag(%{name: "business", created_by_id: user.id})
+      {:ok, business_tag} = Bookmarks.create_tag(%{name: "business", created_by_id: user.id})
+
+      {:ok, _site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/seed",
+          "display_name" => "seed",
+          "created_by_id" => user.id,
+          "tags" => [physics_tag, business_tag]
+        })
 
       conn = log_in_user(conn, user)
       {:ok, view, _html} = live(conn, Routes.site_index_path(conn, :index))
@@ -44,8 +70,16 @@ defmodule BookmarkServerWeb.SiteLiveTest do
     end
 
     test "live-updates the suggestion list as the user types", %{conn: conn, user: user} do
-      {:ok, _physics_tag} =
+      {:ok, physics_tag} =
         Bookmarks.create_tag(%{name: "Physics Engine", created_by_id: user.id})
+
+      {:ok, _site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/seed",
+          "display_name" => "seed",
+          "created_by_id" => user.id,
+          "tags" => [physics_tag]
+        })
 
       conn = log_in_user(conn, user)
       {:ok, index_live, _html} = live(conn, Routes.site_index_path(conn, :index))

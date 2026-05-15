@@ -5,14 +5,11 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
 
   @impl true
   def mount(socket) do
-    available_tags = if connected?(socket), do: Bookmarks.paginate_tags().entries, else: []
-    active_tags = []
-
     {:ok,
      socket
      |> assign(:new_tag, "")
-     |> assign(:available_tags, available_tags)
-     |> assign(:active_tags, active_tags)}
+     |> assign(:available_tags, [])
+     |> assign(:active_tags, [])}
   end
 
   @impl true
@@ -23,10 +20,12 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
       |> Bookmarks.change_site()
 
     active_tags = BookmarkServer.Repo.preload(site, :tags).tags
+    available_tags = Bookmarks.list_user_tags(assigns.current_user.id)
 
     {:ok,
      socket
      |> assign(assigns)
+     |> assign(:available_tags, available_tags)
      |> assign(:active_tags, active_tags)
      |> assign(:site, site)
      |> assign(:changeset, changeset)}
@@ -51,12 +50,14 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
       {:noreply, socket}
     else
       new_active_tags =
-        case Bookmarks.get_tag_by_name(new_tag) do
+        case Bookmarks.get_user_tag_by_name(new_tag, current_user.id) do
           %Bookmarks.Tag{} = tag ->
             (socket.assigns.active_tags ++ [tag]) |> Enum.uniq()
 
           nil ->
-            {:ok, tag} = Bookmarks.create_tag(%{"name" => new_tag, "created_by" => current_user})
+            {:ok, tag} =
+              Bookmarks.create_tag(%{"name" => new_tag, "created_by_id" => current_user.id})
+
             socket.assigns.active_tags ++ [tag]
         end
 

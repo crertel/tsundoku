@@ -31,6 +31,24 @@ defmodule BookmarkServerWeb.TagLiveTest do
       assert html =~ tag.name
     end
 
+    test "cannot view, edit, or delete another user's tag", %{conn: conn, tag: tag} do
+      stranger = BookmarkServer.AccountsFixtures.user_fixture(confirmed: true)
+      conn = log_in_user(conn, stranger)
+
+      assert_raise Ecto.NoResultsError, fn ->
+        live(conn, Routes.tag_show_path(conn, :show, tag))
+      end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        live(conn, Routes.tag_index_path(conn, :edit, tag))
+      end
+
+      {:ok, index_live, _html} = live(conn, Routes.tag_index_path(conn, :index))
+      Process.flag(:trap_exit, true)
+      catch_exit(render_hook(index_live, :delete, %{"id" => tag.id}))
+      assert Bookmarks.get_tag(tag.id) != nil
+    end
+
     @tag :uut
     test "saves new tag", %{conn: conn, user: user} do
       conn = log_in_user(conn, user)

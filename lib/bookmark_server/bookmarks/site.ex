@@ -9,6 +9,7 @@ defmodule BookmarkServer.Bookmarks.Site do
   schema "sites" do
     field :url, :string
     field :display_name, :string
+    field :domain, :string
 
     many_to_many :tags, Tag, join_through: "sites_tags", on_replace: :delete
 
@@ -28,7 +29,25 @@ defmodule BookmarkServer.Bookmarks.Site do
     |> cast(attrs, [:url, :display_name, :created_by_id])
     |> validate_required([:url])
     |> validate_url(:url)
+    |> put_domain_from_url()
     |> put_assoc(:tags, Map.get(attrs, "tags", []))
+  end
+
+  defp put_domain_from_url(changeset) do
+    case get_change(changeset, :url) do
+      nil -> changeset
+      url -> put_change(changeset, :domain, derive_domain(url))
+    end
+  end
+
+  defp derive_domain(url) do
+    case URI.parse(url || "") do
+      %URI{host: host} when is_binary(host) ->
+        host |> String.downcase() |> String.replace_prefix("www.", "")
+
+      _ ->
+        nil
+    end
   end
 
   def validate_url(changeset, field, options \\ []) do
