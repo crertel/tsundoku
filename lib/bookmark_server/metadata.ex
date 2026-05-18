@@ -58,10 +58,13 @@ defmodule BookmarkServer.Metadata do
       case fetch_html(site.url) do
         {:ok, html} ->
           extracted = extract(html, site.url)
+          {favicon_data, favicon_ct} = fetch_favicon(extracted.favicon_url)
 
           %{
             "description" => extracted.description,
             "favicon_url" => extracted.favicon_url,
+            "favicon_data" => favicon_data,
+            "favicon_content_type" => favicon_ct,
             "og_image_url" => extracted.og_image_url,
             "crawled_at" => now,
             "crawl_status" => "ok"
@@ -90,6 +93,45 @@ defmodule BookmarkServer.Metadata do
   defp status_from_reason(%{reason: :timeout}), do: "timeout"
   defp status_from_reason(%{__struct__: mod}) when is_atom(mod), do: "network_error"
   defp status_from_reason(_), do: "error"
+
+  # Favicons over 512 KB are almost certainly mislabeled. Failures are
+  # silent: a missing favicon doesn't fail the rest of the enrichment.
+  @favicon_max_body_size 512 * 1024
+
+  defp fetch_favicon(nil), do: {nil, nil}
+  defp fetch_favicon(""), do: {nil, nil}
+
+  defp fetch_favicon(url) do
+    case Req.get(url,
+           headers: [{"user-agent", @user_agent}],
+           receive_timeout: @receive_timeout,
+           max_redirects: 5,
+           decode_body: false
+         ) do
+      {:ok, %Req.Response{status: status, body: body, headers: headers}}
+      when status in 200..299 ->
+        if byte_size(body) <= @favicon_max_body_size do
+          {body, favicon_content_type(headers)}
+        else
+          {nil, nil}
+        end
+
+      _ ->
+        {nil, nil}
+    end
+  rescue
+    _ -> {nil, nil}
+  end
+
+  defp favicon_content_type(headers) do
+    headers
+    |> content_type_values()
+    |> List.first()
+    |> case do
+      nil -> "image/x-icon"
+      ct -> ct |> String.split(";") |> List.first() |> String.trim()
+    end
+  end
 
   @doc "Returns `{:ok, html}` on success, `{:error, reason}` otherwise."
   def fetch_html(url) do

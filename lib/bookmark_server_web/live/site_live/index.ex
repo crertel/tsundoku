@@ -456,13 +456,12 @@ defmodule BookmarkServerWeb.SiteLive.Index do
                   <Heroicons.x_mark class="h-5 w-5" />
                 <% end %>
               </div>
-              <div :if={site.favicon_url} class="flex shrink-0 items-center pt-0.5">
+              <div :if={src = favicon_data_url(site)} class="flex shrink-0 items-center pt-0.5">
                 <img
-                  src={site.favicon_url}
+                  src={src}
                   alt=""
                   class="h-4 w-4 rounded-sm"
                   loading="lazy"
-                  onerror="this.style.display='none'"
                 />
               </div>
               <div class="min-w-0 flex-1">

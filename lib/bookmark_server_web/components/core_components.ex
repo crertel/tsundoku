@@ -26,4 +26,16 @@ defmodule BookmarkServerWeb.CoreComponents do
       String.replace(acc, "%{#{key}}", to_string(inspect(value)))
     end)
   end
+
+  @doc """
+  Returns a `data:` URL for a cached favicon, or `nil` if the site
+  doesn't have favicon bytes stored. Used inline in the rendered
+  HTML so we don't need a public per-favicon endpoint.
+  """
+  def favicon_data_url(%{favicon_data: data, favicon_content_type: ct})
+      when is_binary(data) do
+    "data:#{ct || "image/x-icon"};base64,#{Base.encode64(data)}"
+  end
+
+  def favicon_data_url(_), do: nil
 end

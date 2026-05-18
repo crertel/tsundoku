@@ -12,6 +12,8 @@ defmodule BookmarkServer.Bookmarks.Site do
     field :domain, :string
     field :description, :string
     field :favicon_url, :string
+    field :favicon_data, :binary
+    field :favicon_content_type, :string
     field :og_image_url, :string
     field :crawled_at, :utc_datetime_usec
     field :crawl_status, :string
@@ -37,6 +39,8 @@ defmodule BookmarkServer.Bookmarks.Site do
       :created_by_id,
       :description,
       :favicon_url,
+      :favicon_data,
+      :favicon_content_type,
       :og_image_url,
       :crawled_at,
       :crawl_status

@@ -92,12 +92,11 @@ defmodule BookmarkServerWeb.SiteLive.Show do
         <header class="border-b border-slate-300 px-6 py-5">
           <div class="flex items-start gap-3">
             <img
-              :if={@site.favicon_url}
-              src={@site.favicon_url}
+              :if={src = favicon_data_url(@site)}
+              src={src}
               alt=""
               class="mt-1 h-5 w-5 shrink-0 rounded-sm"
               loading="lazy"
-              onerror="this.style.display='none'"
             />
             <div class="min-w-0 flex-1">
               <h2 class="break-words text-lg font-semibold text-slate-950">
