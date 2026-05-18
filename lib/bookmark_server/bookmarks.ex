@@ -117,6 +117,43 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   @doc """
+  Counts the user's sites tagged with the given tag.
+  """
+  def count_sites_for_tag(%Tag{id: tag_id, created_by_id: user_id}) do
+    from(st in "sites_tags",
+      join: s in Site,
+      on: s.id == st.site_id,
+      where: st.tag_id == type(^tag_id, :binary_id) and s.created_by_id == ^user_id,
+      select: count()
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Returns the tags that most frequently appear alongside `tag` on the
+  user's sites, sorted by descending co-occurrence count. Each entry is
+  `%{id, name, count}`. Limited to `opts[:limit]` (default 20).
+  """
+  def list_co_occurring_tags(%Tag{id: tag_id, created_by_id: user_id}, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+
+    from(st1 in "sites_tags",
+      join: s in Site,
+      on: s.id == st1.site_id and s.created_by_id == ^user_id,
+      join: st2 in "sites_tags",
+      on: st2.site_id == st1.site_id and st2.tag_id != st1.tag_id,
+      join: t in Tag,
+      on: t.id == st2.tag_id,
+      where: st1.tag_id == type(^tag_id, :binary_id),
+      group_by: [t.id, t.name],
+      order_by: [desc: count(t.id), asc: t.name],
+      limit: ^limit,
+      select: %{id: t.id, name: t.name, count: count(t.id)}
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Moves every site tagged `source` onto `dest`, then deletes `source`.
   Sites that already carry `dest` just lose `source`. Runs in a single
   transaction. Callers should verify ownership of both tags before
@@ -247,30 +284,70 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   @doc """
-  Groups a user's sites by domain with per-domain tag counts. Two indexed
-  GROUP BY queries (one for totals, one for per-tag counts) — no in-memory
-  aggregation over the full sites list.
+  Returns a paginated `Scrivener.Page` of the user's domains with
+  per-domain tag counts. Each entry is `%{domain, count, tags: [%{name,
+  count}]}` (sorted by descending count, then domain name).
+
+  Options:
+    * `:page` (default `1`) — 1-indexed page number.
+    * `:page_size` (default `50`).
+    * `:search` (default `""`) — case-insensitive substring filter on
+      `sites.domain`.
+
+  The page-sized totals query and the tag-counts query only operate
+  over the matching slice (totals are LIMIT/OFFSET'd at the DB; tag
+  counts are restricted to the domains being rendered this page).
   """
-  def list_domains(created_by) do
-    totals =
-      from(s in Site,
-        where: s.created_by_id == ^created_by and not is_nil(s.domain),
-        group_by: s.domain,
-        select: {s.domain, count(s.id)}
-      )
+  def list_domains(created_by, opts \\ []) do
+    page = opts |> Keyword.get(:page, 1) |> coerce_page()
+    page_size = Keyword.get(opts, :page_size, 50)
+    search = opts |> Keyword.get(:search, "") |> to_string() |> String.trim()
+    sort = Keyword.get(opts, :sort, :count)
+
+    base =
+      from s in Site,
+        where: s.created_by_id == ^created_by and not is_nil(s.domain)
+
+    base =
+      if search == "" do
+        base
+      else
+        pattern = "%" <> escape_like(String.downcase(search)) <> "%"
+        from s in base, where: ilike(s.domain, ^pattern)
+      end
+
+    total_entries =
+      from(s in base, select: count(s.domain, :distinct))
+      |> Repo.one()
+
+    page_totals =
+      base
+      |> group_by([s], s.domain)
+      |> domain_order_by(sort)
+      |> limit(^page_size)
+      |> offset(^((page - 1) * page_size))
+      |> select([s], {s.domain, count(s.id)})
       |> Repo.all()
 
+    page_domain_names = Enum.map(page_totals, fn {d, _} -> d end)
+
     tag_counts =
-      from(s in Site,
-        join: st in "sites_tags",
-        on: st.site_id == s.id,
-        join: t in Tag,
-        on: t.id == st.tag_id,
-        where: s.created_by_id == ^created_by and not is_nil(s.domain),
-        group_by: [s.domain, t.name],
-        select: {s.domain, t.name, count()}
-      )
-      |> Repo.all()
+      if page_domain_names == [] do
+        []
+      else
+        from(s in Site,
+          join: st in "sites_tags",
+          on: st.site_id == s.id,
+          join: t in Tag,
+          on: t.id == st.tag_id,
+          where:
+            s.created_by_id == ^created_by and
+              s.domain in ^page_domain_names,
+          group_by: [s.domain, t.name],
+          select: {s.domain, t.name, count()}
+        )
+        |> Repo.all()
+      end
 
     tags_by_domain =
       Enum.reduce(tag_counts, %{}, fn {domain, name, count}, acc ->
@@ -279,17 +356,32 @@ defmodule BookmarkServer.Bookmarks do
         end)
       end)
 
-    totals
-    |> Enum.map(fn {domain, count} ->
-      tags =
-        tags_by_domain
-        |> Map.get(domain, [])
-        |> Enum.sort_by(&{String.downcase(&1.name), &1.name})
+    entries =
+      Enum.map(page_totals, fn {domain, count} ->
+        tags =
+          tags_by_domain
+          |> Map.get(domain, [])
+          |> Enum.sort_by(&{String.downcase(&1.name), &1.name})
 
-      %{domain: domain, count: count, tags: tags}
-    end)
-    |> Enum.sort_by(&{-&1.count, &1.domain})
+        %{domain: domain, count: count, tags: tags}
+      end)
+
+    total_pages =
+      if total_entries == 0, do: 0, else: trunc(:math.ceil(total_entries / page_size))
+
+    %Scrivener.Page{
+      page_size: page_size,
+      page_number: page,
+      entries: entries,
+      total_entries: total_entries,
+      total_pages: total_pages
+    }
   end
+
+  defp domain_order_by(query, :alpha), do: order_by(query, [s], asc: s.domain)
+
+  defp domain_order_by(query, _count),
+    do: order_by(query, [s], desc: count(s.id), asc: s.domain)
 
   def list_domain_names(created_by) do
     list_user_domain_names(created_by)
@@ -331,6 +423,7 @@ defmodule BookmarkServer.Bookmarks do
   def search_sites(user_id, parsed_query, opts \\ []) do
     page = opts |> Keyword.get(:page, 1) |> coerce_page()
     page_size = Keyword.get(opts, :page_size, 50)
+    sort = Keyword.get(opts, :sort, :recency)
 
     base = from s in Site, where: s.created_by_id == ^user_id
 
@@ -353,7 +446,7 @@ defmodule BookmarkServer.Bookmarks do
 
     entries =
       query
-      |> order_titles(all_titles)
+      |> order_sites(all_titles, sort)
       |> preload(:tags)
       |> limit(^page_size)
       |> offset(^((page - 1) * page_size))
@@ -371,9 +464,15 @@ defmodule BookmarkServer.Bookmarks do
     }
   end
 
-  defp order_titles(query, []), do: order_by(query, [s], desc: s.inserted_at)
+  defp order_sites(query, _titles, :alpha) do
+    from s in query, order_by: [asc: s.display_name, asc: s.url]
+  end
 
-  defp order_titles(query, titles) do
+  defp order_sites(query, [], :recency) do
+    order_by(query, [s], desc: s.inserted_at)
+  end
+
+  defp order_sites(query, titles, :recency) do
     phrase = Enum.join(titles, " ")
 
     from s in query,
@@ -500,6 +599,14 @@ defmodule BookmarkServer.Bookmarks do
       select: t.name
     )
     |> Repo.all()
+  end
+
+  @doc """
+  Total count of a user's saved sites, unfiltered.
+  """
+  def count_user_sites(user_id) do
+    from(s in Site, where: s.created_by_id == ^user_id, select: count())
+    |> Repo.one()
   end
 
   @doc """

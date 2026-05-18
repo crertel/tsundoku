@@ -82,6 +82,12 @@ defmodule BookmarkServerWeb.TagLive.FormComponent do
       <%= error_tag f, :name %>
     </div>
 
+    <div>
+      <%= label f, :description, class: "block text-sm font-medium text-slate-700" %>
+      <%= textarea f, :description, rows: 3, class: "mt-2 block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" %>
+      <%= error_tag f, :description %>
+    </div>
+
     <div class="flex justify-end border-t border-slate-300 pt-5">
       <%= submit "Save", phx_disable_with: "Saving...", class: "rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700" %>
     </div>

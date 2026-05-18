@@ -152,7 +152,15 @@ defmodule BookmarkServerWeb.TagLive.Index do
                 <% end %>
               </div>
               <div class="min-w-0">
-                <span class="inline-flex max-w-full items-center truncate rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700"><%= tag.name %></span>
+                <.link
+                  navigate={Routes.site_index_path(@socket, :index, q: Bookmarks.query_fragment("tag", tag.name))}
+                  class="inline-flex max-w-full items-center truncate rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700"
+                >
+                  <%= tag.name %>
+                </.link>
+                <p :if={tag.description not in [nil, ""]} class="mt-1 line-clamp-2 text-xs text-slate-600">
+                  <%= tag.description %>
+                </p>
               </div>
             </div>
           <% end %>

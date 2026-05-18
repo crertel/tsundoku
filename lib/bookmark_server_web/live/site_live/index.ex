@@ -48,10 +48,14 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     search_string = String.trim(query)
     parsed_query = Bookmarks.parse_site_query(search_string)
     page = params["page"] || 1
+    sort = parse_sort(params["sort"])
 
-    page_result = Bookmarks.search_sites(user_id, parsed_query, page: page, page_size: 50)
+    page_result =
+      Bookmarks.search_sites(user_id, parsed_query, page: page, page_size: 50, sort: sort)
+
     available_tags = Bookmarks.list_user_tag_names(user_id)
     available_domains = Bookmarks.list_user_domain_names(user_id)
+    total_unfiltered = Bookmarks.count_user_sites(user_id)
     initial_input = parsed_query.bare_phrase
 
     socket =
@@ -60,6 +64,8 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       |> assign(:available_tags, available_tags)
       |> assign(:available_domains, available_domains)
       |> assign(:site, nil)
+      |> assign(:sort, sort)
+      |> assign(:total_unfiltered, total_unfiltered)
       |> assign(
         sites: page_result.entries,
         page_number: page_result.page_number,
@@ -76,6 +82,26 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       :suggestions,
       search_suggestions(socket.assigns.search_input, available_tags, available_domains)
     )
+  end
+
+  defp parse_sort("alpha"), do: :alpha
+  defp parse_sort(_), do: :recency
+
+  # Build a /sites path that preserves the current sort. Sort is taken
+  # explicitly from `params[:sort]` — callers in handlers pass
+  # `socket.assigns.sort`; callers in templates pass `@sort`.
+  defp index_path(socket, params) do
+    sort_param =
+      case Keyword.get(params, :sort) do
+        :alpha -> "alpha"
+        "alpha" -> "alpha"
+        _ -> nil
+      end
+
+    base = [page: Keyword.get(params, :page, 1), q: Keyword.get(params, :q, "")]
+    full = if sort_param, do: base ++ [sort: sort_param], else: base
+
+    Routes.site_index_path(socket, :index, full)
   end
 
   @impl true
@@ -104,10 +130,19 @@ defmodule BookmarkServerWeb.SiteLive.Index do
     {:noreply,
      push_patch(socket,
        to:
-         Routes.site_index_path(socket, :index,
+         index_path(socket,
            page: page,
-           q: socket.assigns.search
+           q: socket.assigns.search,
+           sort: socket.assigns.sort
          )
+     )}
+  end
+
+  @impl true
+  def handle_event("set_sort", %{"sort" => sort}, socket) do
+    {:noreply,
+     push_patch(socket,
+       to: index_path(socket, page: 1, q: socket.assigns.search, sort: sort)
      )}
   end
 
@@ -129,7 +164,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
         {:noreply,
          socket
          |> assign(:search_input, "")
-         |> push_patch(to: Routes.site_index_path(socket, :index, page: 1, q: new_q))}
+         |> push_patch(to: index_path(socket, page: 1, q: new_q, sort: socket.assigns.sort))}
     end
   end
 
@@ -150,7 +185,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
 
     {:noreply,
      push_patch(socket,
-       to: Routes.site_index_path(socket, :index, page: 1, q: new_query)
+       to: index_path(socket, page: 1, q: new_query, sort: socket.assigns.sort)
      )}
   end
 
@@ -164,7 +199,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
         {:noreply,
          socket
          |> assign(:search_input, "")
-         |> push_patch(to: Routes.site_index_path(socket, :index, page: 1, q: new_q))}
+         |> push_patch(to: index_path(socket, page: 1, q: new_q, sort: socket.assigns.sort))}
     end
   end
 
@@ -175,9 +210,10 @@ defmodule BookmarkServerWeb.SiteLive.Index do
      |> assign(page_number: 1)
      |> push_patch(
        to:
-         Routes.site_index_path(socket, :index,
+         index_path(socket,
            page: 1,
-           q: append_query_fragment(socket.assigns.search, "tag", tag)
+           q: append_query_fragment(socket.assigns.search, "tag", tag),
+           sort: socket.assigns.sort
          )
      )}
   end
@@ -192,9 +228,10 @@ defmodule BookmarkServerWeb.SiteLive.Index do
        |> assign(page_number: 1)
        |> push_patch(
          to:
-           Routes.site_index_path(socket, :index,
+           index_path(socket,
              page: 1,
-             q: append_query_fragment(socket.assigns.search, "tag", suggested_tag)
+             q: append_query_fragment(socket.assigns.search, "tag", suggested_tag),
+             sort: socket.assigns.sort
            )
        )}
     end
@@ -342,11 +379,45 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 class="text-2xl font-semibold text-slate-950">Sites</h1>
-          <p class="mt-1 text-sm text-slate-700"><%= @total_entries %> saved bookmarks</p>
+          <p class="mt-1 text-sm text-slate-700">
+            <%= if @search == "" do %>
+              <%= @total_entries %> saved bookmarks
+            <% else %>
+              <%= @total_entries %> filtered bookmarks (of <%= @total_unfiltered %>)
+            <% end %>
+          </p>
         </div>
         <.link patch={Routes.site_index_path(@socket, :new)} class="inline-flex items-center justify-center self-start rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 sm:self-auto">
           New Site
         </.link>
+      </div>
+
+      <div class="mb-4 flex items-center justify-end gap-2 text-xs text-slate-600">
+        <span>Sort:</span>
+        <button
+          type="button"
+          phx-click="set_sort"
+          phx-value-sort="recency"
+          class={[
+            "rounded-md px-2 py-1 font-medium",
+            @sort == :recency && "bg-slate-300 text-slate-950",
+            @sort != :recency && "text-slate-700 hover:bg-slate-200"
+          ]}
+        >
+          recency
+        </button>
+        <button
+          type="button"
+          phx-click="set_sort"
+          phx-value-sort="alpha"
+          class={[
+            "rounded-md px-2 py-1 font-medium",
+            @sort == :alpha && "bg-slate-300 text-slate-950",
+            @sort != :alpha && "text-slate-700 hover:bg-slate-200"
+          ]}
+        >
+          alpha
+        </button>
       </div>
 
       <div class="mb-6">
@@ -357,7 +428,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
               id="site-search-input"
               name="query_field[query]"
               value={@search_input}
-              placeholder={~s(Search, tag:"reading", domain:example.com)}
+              placeholder={~s(Search title, or tag:name, domain:example.com, url:text)}
               autocomplete="off"
               autofocus
               onkeydown="if (event.key === 'Escape') { this.blur(); } else if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector('#site-search-suggestions button')?.focus(); }"
@@ -423,9 +494,7 @@ defmodule BookmarkServerWeb.SiteLive.Index do
               status:<%= status %>
             </.filter_pill>
           <% end %>
-          <%= if @search == "" do %>
-            <span class="text-sm text-slate-700">Use free text (matched as a fuzzy phrase against the title), <code>tag:name</code>, <code>domain:example.com</code>, or <code>url:text</code>.</span>
-          <% end %>
+          <span :if={@search == ""} class="text-sm text-slate-500">No filters.</span>
         </div>
       </div>
 
@@ -465,22 +534,13 @@ defmodule BookmarkServerWeb.SiteLive.Index do
                 />
               </div>
               <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
-                    <a href={ site.url } class="block min-w-0 flex-1 truncate text-sm font-semibold text-slate-950 hover:text-sky-700" target="_blank">
-                      <%= if site.display_name == "" do%>
-                        <%= site.url %>
-                      <% else  %>
-                        <%= site.display_name %>
-                      <% end %>
-                    </a>
-                    <span
-                      :if={site.crawl_status not in [nil, "ok"]}
-                      class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
-                      title={"Crawl status: " <> site.crawl_status}
-                    >
-                      <%= site.crawl_status %>
-                    </span>
-                  </div>
+                  <a href={ site.url } class="block truncate text-sm font-semibold text-slate-950 hover:text-sky-700" target="_blank">
+                    <%= if site.display_name == "" do%>
+                      <%= site.url %>
+                    <% else  %>
+                      <%= site.display_name %>
+                    <% end %>
+                  </a>
                   <div class="mt-1 truncate text-xs text-slate-700"><%= site.url %></div>
                   <p :if={site.description not in [nil, ""]} class="mt-1 line-clamp-2 text-xs text-slate-600">
                     <%= site.description %>
@@ -488,6 +548,23 @@ defmodule BookmarkServerWeb.SiteLive.Index do
               </div>
             </div>
             <div class="mt-3 flex flex-wrap items-center gap-2 pl-24">
+              <.link
+                :if={site.domain}
+                patch={index_path(@socket, page: 1, q: append_query_fragment(@search, "domain", site.domain), sort: @sort)}
+                class="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100"
+              >
+                domain:<%= site.domain %>
+              </.link>
+              <.link
+                :if={site.crawl_status not in [nil, "ok"]}
+                patch={index_path(@socket, page: 1, q: append_query_fragment(@search, "status", site.crawl_status), sort: @sort)}
+                class="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200"
+                title="Crawl status"
+              >
+                status:<%= site.crawl_status %>
+              </.link>
+            </div>
+            <div class="mt-2 flex flex-wrap items-center gap-2 pl-24">
               <%= if length(site.tags) > 0 do %>
                 <%= for tag <- site.tags do %>
                   <button type="button" class="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700" phx-click="add_filter_tag" phx-value-tag={tag.name}>

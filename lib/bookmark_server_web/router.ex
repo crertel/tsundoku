@@ -107,21 +107,24 @@ defmodule BookmarkServerWeb.Router do
   scope "/", BookmarkServerWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    live "/tags", TagLive.Index, :index
-    live "/tags/new", TagLive.Index, :new
-    live "/tags/:id/edit", TagLive.Index, :edit
-    live "/tags/:id", TagLive.Show, :show
-    live "/tags/:id/show/edit", TagLive.Show, :edit
+    live_session :authed,
+      on_mount: [{BookmarkServerWeb.UserAuth, :ensure_authenticated}] do
+      live "/tags", TagLive.Index, :index
+      live "/tags/new", TagLive.Index, :new
+      live "/tags/:id/edit", TagLive.Index, :edit
+      live "/tags/:id", TagLive.Show, :show
+      live "/tags/:id/show/edit", TagLive.Show, :edit
 
-    live "/domains", DomainLive.Index, :index
+      live "/domains", DomainLive.Index, :index
 
-    live "/import", ImportLive.Index, :index
+      live "/import", ImportLive.Index, :index
 
-    live "/sites", SiteLive.Index, :index
-    live "/sites/new", SiteLive.Index, :new
-    live "/sites/:id/edit", SiteLive.Index, :edit
-    live "/sites/:id", SiteLive.Show, :show
-    live "/sites/:id/show/edit", SiteLive.Show, :edit
+      live "/sites", SiteLive.Index, :index
+      live "/sites/new", SiteLive.Index, :new
+      live "/sites/:id/edit", SiteLive.Index, :edit
+      live "/sites/:id", SiteLive.Show, :show
+      live "/sites/:id/show/edit", SiteLive.Show, :edit
+    end
 
     get "/extension", ExtensionController, :show
 

@@ -161,4 +161,32 @@ defmodule BookmarkServerWeb.UserAuth do
   defp maybe_store_return_to(conn), do: conn
 
   defp signed_in_path(_conn), do: "/"
+
+  @doc """
+  LiveView `on_mount` callback used by the authed `live_session`.
+  Loads the current user from the session and aborts if none is
+  found. With a shared `live_session`, the HTTP `require_authenticated_user`
+  plug only runs on the initial GET; subsequent LV-to-LV navigations
+  within the session must verify again here.
+  """
+  def on_mount(:ensure_authenticated, _params, session, socket) do
+    socket =
+      Phoenix.Component.assign_new(socket, :current_user, fn ->
+        with token when not is_nil(token) <- session["user_token"],
+             %BookmarkServer.Accounts.User{} = user <-
+               Accounts.get_user_by_session_token(token),
+             do: user
+      end)
+
+    case socket.assigns[:current_user] do
+      %BookmarkServer.Accounts.User{} ->
+        {:cont, socket}
+
+      _ ->
+        {:halt,
+         socket
+         |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+         |> Phoenix.LiveView.redirect(to: "/users/log_in")}
+    end
+  end
 end

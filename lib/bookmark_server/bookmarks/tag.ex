@@ -11,6 +11,7 @@ defmodule BookmarkServer.Bookmarks.Tag do
   @foreign_key_type :binary_id
   schema "tags" do
     field :name, :string
+    field :description, :string
 
     many_to_many :sites, Site, join_through: "sites_tags", on_replace: :delete
 
@@ -27,7 +28,7 @@ defmodule BookmarkServer.Bookmarks.Tag do
   @doc false
   def changeset(tag, attrs) do
     tag
-    |> cast(attrs, [:name, :created_by_id])
+    |> cast(attrs, [:name, :description, :created_by_id])
     |> validate_required([:name])
     |> unique_constraint(:name,
       name: :tag_name_created_by_unique_index,

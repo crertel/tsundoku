@@ -22,7 +22,26 @@ defmodule BookmarkServerWeb.TagLive.Show do
      |> assign(:page_title, page_title(socket.assigns.live_action))
      |> assign(:tag, tag)
      |> assign(:other_tags, other_tags)
-     |> assign(:merge_dest, "")}
+     |> assign(:merge_dest, "")
+     |> assign(:bookmark_count, Bookmarks.count_sites_for_tag(tag))
+     |> assign(:co_tags, Bookmarks.list_co_occurring_tags(tag, limit: 20))}
+  end
+
+  defp tag_filter_path(socket, name) do
+    Routes.site_index_path(socket, :index, q: Bookmarks.query_fragment("tag", name))
+  end
+
+  defp tag_and_filter_path(socket, name1, name2) do
+    Routes.site_index_path(
+      socket,
+      :index,
+      q:
+        [
+          Bookmarks.query_fragment("tag", name1),
+          Bookmarks.query_fragment("tag", name2)
+        ]
+        |> Enum.join(" ")
+    )
   end
 
   defp page_title(:show), do: "Show Tag"
@@ -97,11 +116,50 @@ defmodule BookmarkServerWeb.TagLive.Show do
         <dl class="grid gap-4 sm:grid-cols-[10rem_1fr]">
           <dt class="text-sm font-medium text-slate-700">Name</dt>
           <dd>
-            <span class="inline-flex max-w-full items-center truncate rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700">
+            <.link
+              navigate={tag_filter_path(@socket, @tag.name)}
+              class="inline-flex max-w-full items-center truncate rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700"
+            >
               <%= @tag.name %>
-            </span>
+            </.link>
+          </dd>
+
+          <dt class="text-sm font-medium text-slate-700">Bookmarks</dt>
+          <dd class="text-sm text-slate-800">
+            <.link navigate={tag_filter_path(@socket, @tag.name)} class="text-sky-700 hover:text-sky-900">
+              <%= @bookmark_count %>
+              <%= if @bookmark_count == 1, do: "bookmark", else: "bookmarks" %>
+            </.link>
+          </dd>
+
+          <dt :if={@tag.description not in [nil, ""]} class="text-sm font-medium text-slate-700">
+            Description
+          </dt>
+          <dd :if={@tag.description not in [nil, ""]} class="text-sm text-slate-800 whitespace-pre-line">
+            <%= @tag.description %>
           </dd>
         </dl>
+      </div>
+
+      <div :if={@co_tags != []} class="mb-6 rounded-lg border border-slate-400 bg-slate-100 p-6 shadow-sm">
+        <h2 class="text-lg font-semibold text-slate-950">Often appears with</h2>
+        <p class="mt-1 text-sm text-slate-700">
+          Tags most frequently used together with <strong><%= @tag.name %></strong>.
+          Click a tag to view the bookmarks carrying both.
+        </p>
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <%= for co <- @co_tags do %>
+            <.link
+              navigate={tag_and_filter_path(@socket, @tag.name, co.name)}
+              class="inline-flex items-center gap-2 rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-sky-50 hover:text-sky-700"
+            >
+              <%= co.name %>
+              <span class="rounded-full bg-white/70 px-2 text-[10px] font-semibold text-slate-600">
+                <%= co.count %>
+              </span>
+            </.link>
+          <% end %>
+        </div>
       </div>
 
       <div class="rounded-lg border border-slate-400 bg-slate-100 p-6 shadow-sm">

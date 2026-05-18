@@ -414,13 +414,16 @@ defmodule BookmarkServer.BookmarksTest do
           "tags" => []
         })
 
+      page = Bookmarks.list_domains(user.id)
+      assert page.total_entries == 1
+
       assert [
                %{
                  domain: "example.com",
                  count: 2,
                  tags: [%{name: "docs", count: 2}, %{name: "elixir", count: 1}]
                }
-             ] = Bookmarks.list_domains(user.id)
+             ] = page.entries
     end
   end
 end
