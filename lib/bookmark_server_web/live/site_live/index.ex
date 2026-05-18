@@ -240,11 +240,26 @@ defmodule BookmarkServerWeb.SiteLive.Index do
         do: [],
         else: [Bookmarks.query_fragment("title", parsed.bare_phrase)]
 
+    metadata_token =
+      case parsed[:has_metadata] do
+        true -> ["metadata:has"]
+        false -> ["metadata:missing"]
+        _ -> []
+      end
+
+    status_token =
+      case parsed[:crawl_status] do
+        nil -> []
+        value -> ["status:" <> value]
+      end
+
     bare_token ++
       Enum.map(parsed.titles, &Bookmarks.query_fragment("title", &1)) ++
       Enum.map(parsed.tags, &Bookmarks.query_fragment("tag", &1)) ++
       Enum.map(parsed.domains, &Bookmarks.query_fragment("domain", &1)) ++
       Enum.map(parsed.urls, &Bookmarks.query_fragment("url", &1)) ++
+      metadata_token ++
+      status_token ++
       Enum.map(parsed.exclude_titles, &("-" <> Bookmarks.query_fragment("title", &1))) ++
       Enum.map(parsed.exclude_tags, &("-" <> Bookmarks.query_fragment("tag", &1))) ++
       Enum.map(parsed.exclude_domains, &("-" <> Bookmarks.query_fragment("domain", &1))) ++
@@ -392,6 +407,22 @@ defmodule BookmarkServerWeb.SiteLive.Index do
               url:<%= url %>
             </.filter_pill>
           <% end %>
+          <%= case @parsed_query[:has_metadata] do %>
+            <% true -> %>
+              <.filter_pill filter_type="metadata" filter_value="has" color="slate">
+                metadata:has
+              </.filter_pill>
+            <% false -> %>
+              <.filter_pill filter_type="metadata" filter_value="missing" color="slate">
+                metadata:missing
+              </.filter_pill>
+            <% _ -> %>
+          <% end %>
+          <%= if status = @parsed_query[:crawl_status] do %>
+            <.filter_pill filter_type="status" filter_value={status} color="slate">
+              status:<%= status %>
+            </.filter_pill>
+          <% end %>
           <%= if @search == "" do %>
             <span class="text-sm text-slate-700">Use free text (matched as a fuzzy phrase against the title), <code>tag:name</code>, <code>domain:example.com</code>, or <code>url:text</code>.</span>
           <% end %>
@@ -425,15 +456,36 @@ defmodule BookmarkServerWeb.SiteLive.Index do
                   <Heroicons.x_mark class="h-5 w-5" />
                 <% end %>
               </div>
+              <div :if={site.favicon_url} class="flex shrink-0 items-center pt-0.5">
+                <img
+                  src={site.favicon_url}
+                  alt=""
+                  class="h-4 w-4 rounded-sm"
+                  loading="lazy"
+                  onerror="this.style.display='none'"
+                />
+              </div>
               <div class="min-w-0 flex-1">
-                  <a href={ site.url } class="block truncate text-sm font-semibold text-slate-950 hover:text-sky-700" target="_blank">
-                    <%= if site.display_name == "" do%>
-                      <%= site.url %>
-                    <% else  %>
-                      <%= site.display_name %>
-                    <% end %>
-                  </a>
+                  <div class="flex items-center gap-2">
+                    <a href={ site.url } class="block min-w-0 flex-1 truncate text-sm font-semibold text-slate-950 hover:text-sky-700" target="_blank">
+                      <%= if site.display_name == "" do%>
+                        <%= site.url %>
+                      <% else  %>
+                        <%= site.display_name %>
+                      <% end %>
+                    </a>
+                    <span
+                      :if={site.crawl_status not in [nil, "ok"]}
+                      class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+                      title={"Crawl status: " <> site.crawl_status}
+                    >
+                      <%= site.crawl_status %>
+                    </span>
+                  </div>
                   <div class="mt-1 truncate text-xs text-slate-700"><%= site.url %></div>
+                  <p :if={site.description not in [nil, ""]} class="mt-1 line-clamp-2 text-xs text-slate-600">
+                    <%= site.description %>
+                  </p>
               </div>
             </div>
             <div class="mt-3 flex flex-wrap items-center gap-2 pl-24">

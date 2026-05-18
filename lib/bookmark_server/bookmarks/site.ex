@@ -10,6 +10,11 @@ defmodule BookmarkServer.Bookmarks.Site do
     field :url, :string
     field :display_name, :string
     field :domain, :string
+    field :description, :string
+    field :favicon_url, :string
+    field :og_image_url, :string
+    field :crawled_at, :utc_datetime_usec
+    field :crawl_status, :string
 
     many_to_many :tags, Tag, join_through: "sites_tags", on_replace: :delete
 
@@ -26,7 +31,16 @@ defmodule BookmarkServer.Bookmarks.Site do
   def changeset(site, attrs) do
     site
     |> BookmarkServer.Repo.preload(:tags)
-    |> cast(attrs, [:url, :display_name, :created_by_id])
+    |> cast(attrs, [
+      :url,
+      :display_name,
+      :created_by_id,
+      :description,
+      :favicon_url,
+      :og_image_url,
+      :crawled_at,
+      :crawl_status
+    ])
     |> validate_required([:url])
     |> validate_url(:url)
     |> put_domain_from_url()

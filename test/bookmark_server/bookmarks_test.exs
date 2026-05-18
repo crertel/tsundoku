@@ -250,6 +250,57 @@ defmodule BookmarkServer.BookmarksTest do
                Bookmarks.parse_site_query(~s(-title:"draft notes"))
     end
 
+    test "parse_site_query/1 supports metadata:has and metadata:missing" do
+      assert %{has_metadata: true} = Bookmarks.parse_site_query("metadata:has")
+      assert %{has_metadata: true} = Bookmarks.parse_site_query("metadata:fetched")
+      assert %{has_metadata: false} = Bookmarks.parse_site_query("metadata:missing")
+      assert %{has_metadata: false} = Bookmarks.parse_site_query("metadata:pending")
+      assert %{has_metadata: false} = Bookmarks.parse_site_query("-metadata:has")
+      assert %{has_metadata: nil} = Bookmarks.parse_site_query("metadata:whatever")
+      assert %{has_metadata: nil} = Bookmarks.parse_site_query("hello world")
+    end
+
+    test "search_sites/3 filters by metadata presence" do
+      user = AccountsFixtures.user_fixture()
+
+      {:ok, enriched} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/enriched",
+          "display_name" => "Enriched",
+          "created_by_id" => user.id,
+          "tags" => []
+        })
+
+      {:ok, pending} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/pending",
+          "display_name" => "Pending",
+          "created_by_id" => user.id,
+          "tags" => []
+        })
+
+      {:ok, _} =
+        Bookmarks.update_site(enriched, %{
+          "crawled_at" => DateTime.utc_now(),
+          "tags" => []
+        })
+
+      ids_with = fn query ->
+        page =
+          Bookmarks.search_sites(
+            user.id,
+            Bookmarks.parse_site_query(query),
+            page: 1,
+            page_size: 50
+          )
+
+        MapSet.new(page.entries, & &1.id)
+      end
+
+      assert ids_with.("metadata:has") |> MapSet.equal?(MapSet.new([enriched.id]))
+      assert ids_with.("metadata:missing") |> MapSet.equal?(MapSet.new([pending.id]))
+    end
+
     test "search_sites/3 surfaces fuzzy phrase matches against the title" do
       user = AccountsFixtures.user_fixture()
 

@@ -169,6 +169,42 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   @doc """
+  Enqueues a metadata-enrichment job for every matching site. Returns the
+  number of jobs enqueued. By default skips sites that already have
+  `crawled_at` set; pass `force: true` to re-enrich everything.
+  Pass `user_id: ...` to scope to one user.
+
+  Intended for backfills (e.g. after deploying a fetcher change) and for
+  ad-hoc re-runs from a remote shell.
+
+      iex> BookmarkServer.Bookmarks.enqueue_metadata_backfill()
+      iex> BookmarkServer.Bookmarks.enqueue_metadata_backfill(force: true)
+      iex> BookmarkServer.Bookmarks.enqueue_metadata_backfill(user_id: user.id)
+  """
+  def enqueue_metadata_backfill(opts \\ []) do
+    user_id = Keyword.get(opts, :user_id)
+    force = Keyword.get(opts, :force, false)
+
+    query = from(s in Site, select: s.id)
+
+    query =
+      if force, do: query, else: from(s in query, where: is_nil(s.crawled_at))
+
+    query =
+      if user_id, do: from(s in query, where: s.created_by_id == ^user_id), else: query
+
+    ids = Repo.all(query)
+
+    Enum.each(ids, fn id ->
+      %{site_id: id}
+      |> BookmarkServer.Workers.EnrichMetadata.new()
+      |> Oban.insert!()
+    end)
+
+    length(ids)
+  end
+
+  @doc """
   Groups a user's sites by domain with per-domain tag counts. Two indexed
   GROUP BY queries (one for totals, one for per-tag counts) — no in-memory
   aggregation over the full sites list.
@@ -225,6 +261,8 @@ defmodule BookmarkServer.Bookmarks do
       tags: [],
       domains: [],
       urls: [],
+      has_metadata: nil,
+      crawl_status: nil,
       exclude_titles: [],
       exclude_tags: [],
       exclude_domains: [],
@@ -266,6 +304,8 @@ defmodule BookmarkServer.Bookmarks do
       |> filter_by_domain(parsed_query.exclude_domains, :exclude)
       |> filter_by_tag(parsed_query.tags, :include)
       |> filter_by_tag(parsed_query.exclude_tags, :exclude)
+      |> filter_by_metadata(parsed_query.has_metadata)
+      |> filter_by_status(parsed_query.crawl_status)
 
     total_entries = Repo.aggregate(query, :count, :id)
 
@@ -380,6 +420,25 @@ defmodule BookmarkServer.Bookmarks do
     end)
   end
 
+  defp filter_by_metadata(query, nil), do: query
+
+  defp filter_by_metadata(query, true),
+    do: from(s in query, where: not is_nil(s.crawled_at))
+
+  defp filter_by_metadata(query, false),
+    do: from(s in query, where: is_nil(s.crawled_at))
+
+  defp filter_by_status(query, nil), do: query
+
+  defp filter_by_status(query, "failed") do
+    from s in query,
+      where: not is_nil(s.crawl_status) and s.crawl_status != "ok"
+  end
+
+  defp filter_by_status(query, status) do
+    from s in query, where: s.crawl_status == ^status
+  end
+
   defp escape_like(value) do
     value
     |> String.replace("\\", "\\\\")
@@ -472,7 +531,7 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   defp tokenize_site_query(query) do
-    ~r/-?(?:tag|domain|site|url|title):"[^"]*"|-?(?:tag|domain|site|url|title):\S+|"[^"]*"|\S+/
+    ~r/-?(?:tag|domain|site|url|title|metadata|status):"[^"]*"|-?(?:tag|domain|site|url|title|metadata|status):\S+|"[^"]*"|\S+/
     |> Regex.scan(query || "")
     |> List.flatten()
   end
@@ -487,6 +546,20 @@ defmodule BookmarkServer.Bookmarks do
   collected bare tokens whose joined phrase equals the value (whichever is
   present). For the other types, removes the first matching field token.
   """
+  def remove_filter(query, "metadata", _value) do
+    query
+    |> tokenize_site_query()
+    |> Enum.reject(&Regex.match?(~r/^-?metadata:/, &1))
+    |> Enum.join(" ")
+  end
+
+  def remove_filter(query, "status", _value) do
+    query
+    |> tokenize_site_query()
+    |> Enum.reject(&Regex.match?(~r/^-?status:/, &1))
+    |> Enum.join(" ")
+  end
+
   def remove_filter(query, "title", value) do
     target = String.downcase(value)
     tokens = tokenize_site_query(query)
@@ -580,7 +653,10 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   defp parse_site_query_token(token, query) do
-    case Regex.run(~r/^(-?)(tag|domain|site|url|title):(?:"([^"]*)"|(.+))$/, token) do
+    case Regex.run(
+           ~r/^(-?)(tag|domain|site|url|title|metadata|status):(?:"([^"]*)"|(.+))$/,
+           token
+         ) do
       [_, negation, field, quoted_value] ->
         parsed_value = normalize_query_value(quoted_value)
         put_fielded_query_value(query, negation, field, parsed_value)
@@ -637,6 +713,43 @@ defmodule BookmarkServer.Bookmarks do
   defp put_fielded_query_value(query, _, "title", value),
     do: %{query | titles: query.titles ++ [value]}
 
+  defp put_fielded_query_value(query, "-", "metadata", value),
+    do: put_metadata_filter(query, value, :invert)
+
+  defp put_fielded_query_value(query, _, "metadata", value),
+    do: put_metadata_filter(query, value, :keep)
+
+  defp put_fielded_query_value(query, _, "status", value),
+    do: %{query | crawl_status: normalize_status(value)}
+
+  defp put_metadata_filter(query, value, polarity) do
+    case metadata_value(value) do
+      nil ->
+        query
+
+      bool ->
+        bool = if polarity == :invert, do: not bool, else: bool
+        %{query | has_metadata: bool}
+    end
+  end
+
+  defp metadata_value(value) do
+    case String.downcase(value) do
+      v when v in ~w(has yes fetched true 1 done) -> true
+      v when v in ~w(missing no pending false 0 none absent) -> false
+      _ -> nil
+    end
+  end
+
+  defp normalize_status(value) do
+    v = value |> String.downcase() |> String.trim()
+
+    cond do
+      Regex.match?(~r/^\d{3}$/, v) -> "http_" <> v
+      true -> v
+    end
+  end
+
   defp normalize_domain_filter(value) do
     value
     |> String.downcase()
@@ -673,9 +786,17 @@ defmodule BookmarkServer.Bookmarks do
 
   """
   def create_site(attrs \\ %{}) do
-    %Site{}
-    |> Site.changeset(attrs)
-    |> Repo.insert()
+    result =
+      %Site{}
+      |> Site.changeset(attrs)
+      |> Repo.insert()
+
+    case result do
+      {:ok, site} -> BookmarkServer.Metadata.enrich_async(site)
+      _ -> :ok
+    end
+
+    result
   end
 
   @doc """
@@ -691,9 +812,16 @@ defmodule BookmarkServer.Bookmarks do
 
   """
   def update_site(%Site{} = site, attrs) do
-    site
-    |> Site.changeset(attrs)
-    |> Repo.update()
+    changeset = Site.changeset(site, attrs)
+    url_changed? = match?(%{changes: %{url: _}}, changeset)
+    result = Repo.update(changeset)
+
+    case {result, url_changed?} do
+      {{:ok, updated}, true} -> BookmarkServer.Metadata.enrich_async(updated)
+      _ -> :ok
+    end
+
+    result
   end
 
   @doc """

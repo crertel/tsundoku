@@ -23,3 +23,7 @@ config :bookmark_server, BookmarkServerWeb.Endpoint,
 
 # Print only warnings and errors during test
 config :logger, level: :warning
+
+# Oban jobs are enqueued but not executed during tests. Tests that want
+# to drive a job to completion call `Oban.drain_queue/1` explicitly.
+config :bookmark_server, Oban, testing: :manual

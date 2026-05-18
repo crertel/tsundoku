@@ -13,6 +13,15 @@ config :bookmark_server,
 
 config :bookmark_server, BookmarkServer.Repo, migration_timestamps: [type: :utc_datetime_usec]
 
+config :bookmark_server, Oban,
+  engine: Oban.Engines.Basic,
+  notifier: Oban.Notifiers.Postgres,
+  # Queue concurrency: 5 workers can run in parallel, but per-domain
+  # serialization is enforced inside the worker via DomainMutex so we
+  # never hit the same host concurrently.
+  queues: [metadata: 5],
+  repo: BookmarkServer.Repo
+
 # Configures the endpoint
 config :bookmark_server, BookmarkServerWeb.Endpoint,
   url: [host: "localhost"],

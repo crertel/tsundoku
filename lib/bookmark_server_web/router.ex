@@ -2,6 +2,7 @@ defmodule BookmarkServerWeb.Router do
   use BookmarkServerWeb, :router
 
   import BookmarkServerWeb.UserAuth
+  import Oban.Web.Router
 
   pipeline :browser do
     plug :accepts, ["html"]
@@ -123,5 +124,7 @@ defmodule BookmarkServerWeb.Router do
     live "/sites/:id/show/edit", SiteLive.Show, :edit
 
     get "/extension", ExtensionController, :show
+
+    oban_dashboard "/admin/oban"
   end
 end
