@@ -6,6 +6,45 @@ None of this is committed to a roadmap; the file is a parking lot.
 Shipped things are removed from this file once they're done; check
 git log for what's actually in.
 
+## At-a-glance
+
+**QoL polish (small)**
+1. User-editable notes field per site
+2. "Already saved" badge in the extension
+3. Site-wide keyboard shortcuts (`j`/`k`/`/`/`e`/`x`)
+4. Inline pill editing
+5. Saved searches
+6. Bulk actions on selected sites
+
+**Crawler / metadata (medium)**
+7. Link-rot checker (Oban cron)
+8. Page snapshot at save time (+ full-text search across snapshots)
+9. Smart tag suggestions from page content
+
+**Surfacing / sharing (medium)**
+10. Per-tag / per-domain RSS feed
+11. Public read-only shareable collections
+12. Random / serendipity view
+13. Per-tag dashboards (saves over time, co-occurring tags)
+
+**Extension polish (small)**
+14. Hotkey-to-save with default tags
+15. Inline tag editor via content script (skip the popup)
+16. Mobile Firefox support
+17. AMO unlisted signing for one-click install
+
+**Bigger swings**
+18. Reading-status workflow (unread / read / archived)
+19. Mobile share target
+20. Multi-user sharing primitives (invites, follow, collections)
+
+**Ops / durability**
+21. Backup / restore (JSON dump + import)
+22. Health / status page
+23. URL search-and-replace (e.g. twitter.com → x.com)
+24. Re-fetch failed favicons
+25. Periodic Oban job pruning
+
 ## Quality-of-life polish (small)
 
 - **User-editable notes field on each site.** The auto-fetched
