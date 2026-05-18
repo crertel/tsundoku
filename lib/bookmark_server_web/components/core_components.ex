@@ -38,4 +38,22 @@ defmodule BookmarkServerWeb.CoreComponents do
   end
 
   def favicon_data_url(_), do: nil
+
+  @doc """
+  Builds a URL to the Wayback Machine's snapshot calendar for the given
+  page URL. Returns `nil` if `url` is blank.
+  """
+  def wayback_url(url) when is_binary(url) and url != "",
+    do: "https://web.archive.org/web/*/" <> url
+
+  def wayback_url(_), do: nil
+
+  @doc """
+  Builds a URL to archive.ph's snapshot list for the given page URL.
+  Returns `nil` if `url` is blank.
+  """
+  def archive_ph_url(url) when is_binary(url) and url != "",
+    do: "https://archive.ph/" <> url
+
+  def archive_ph_url(_), do: nil
 end

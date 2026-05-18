@@ -53,7 +53,25 @@ defmodule BookmarkServerWeb.SiteLive.Show do
           <h1 class="text-2xl font-semibold text-slate-950">Bookmark</h1>
           <p class="mt-1 text-sm text-slate-700">Details, source link, and saved metadata.</p>
         </div>
-        <div class="flex shrink-0 gap-2">
+        <div class="flex shrink-0 flex-wrap gap-2">
+          <a
+            href={wayback_url(@site.url)}
+            target="_blank"
+            rel="noopener"
+            class="rounded-md border border-slate-400 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-200"
+            title="View past snapshots on the Wayback Machine"
+          >
+            Wayback
+          </a>
+          <a
+            href={archive_ph_url(@site.url)}
+            target="_blank"
+            rel="noopener"
+            class="rounded-md border border-slate-400 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-200"
+            title="View past snapshots on archive.ph"
+          >
+            archive.ph
+          </a>
           <.link
             patch={Routes.site_show_path(@socket, :edit, @site)}
             class="rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"

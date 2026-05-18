@@ -534,13 +534,34 @@ defmodule BookmarkServerWeb.SiteLive.Index do
                 />
               </div>
               <div class="min-w-0 flex-1">
-                  <a href={ site.url } class="block truncate text-sm font-semibold text-slate-950 hover:text-sky-700" target="_blank">
-                    <%= if site.display_name == "" do%>
-                      <%= site.url %>
-                    <% else  %>
-                      <%= site.display_name %>
-                    <% end %>
-                  </a>
+                  <div class="flex flex-wrap items-baseline gap-x-2">
+                    <a href={ site.url } class="min-w-0 max-w-full truncate text-sm font-semibold text-slate-950 hover:text-sky-700" target="_blank">
+                      <%= if site.display_name == "" do%>
+                        <%= site.url %>
+                      <% else  %>
+                        <%= site.display_name %>
+                      <% end %>
+                    </a>
+                    <span class="text-xs text-slate-400">·</span>
+                    <a
+                      href={wayback_url(site.url)}
+                      target="_blank"
+                      rel="noopener"
+                      class="text-xs text-slate-500 hover:text-sky-700"
+                      title="Wayback Machine snapshots"
+                    >
+                      wayback
+                    </a>
+                    <a
+                      href={archive_ph_url(site.url)}
+                      target="_blank"
+                      rel="noopener"
+                      class="text-xs text-slate-500 hover:text-sky-700"
+                      title="archive.ph snapshots"
+                    >
+                      archive.ph
+                    </a>
+                  </div>
                   <div class="mt-1 truncate text-xs text-slate-700"><%= site.url %></div>
                   <p :if={site.description not in [nil, ""]} class="mt-1 line-clamp-2 text-xs text-slate-600">
                     <%= site.description %>
