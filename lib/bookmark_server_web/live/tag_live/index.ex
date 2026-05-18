@@ -104,26 +104,25 @@ defmodule BookmarkServerWeb.TagLive.Index do
   def render(assigns) do
     ~H"""
     <section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 class="text-2xl font-semibold text-slate-950">Tags</h1>
           <p class="mt-1 text-sm text-slate-700"><%= @total_entries %> saved tags</p>
         </div>
+        <.link patch={Routes.tag_index_path(@socket, :new)} class="inline-flex items-center justify-center self-start rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 sm:self-auto">
+          New Tag
+        </.link>
+      </div>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <form phx-change="run_search" class="w-full sm:w-80">
-            <%= text_input :query_field,
-                :query,
-                placeholder: "Search tags",
-                autofocus: true,
-                class: "block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200",
-                "phx-debounce": "500" , value: @search%>
-          </form>
-
-          <.link patch={Routes.tag_index_path(@socket, :new)} class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700">
-            New Tag
-          </.link>
-        </div>
+      <div class="mb-6">
+        <form phx-change="run_search" phx-submit="run_search" class="w-full">
+          <%= text_input :query_field,
+              :query,
+              placeholder: "Search tags",
+              autofocus: true,
+              class: "block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200",
+              "phx-debounce": "500" , value: @search %>
+        </form>
       </div>
 
     <%= if @live_action in [:new, :edit] do %>

@@ -117,6 +117,48 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   @doc """
+  Moves every site tagged `source` onto `dest`, then deletes `source`.
+  Sites that already carry `dest` just lose `source`. Runs in a single
+  transaction. Callers should verify ownership of both tags before
+  calling.
+
+  Returns `{:ok, %{source_name, dest_name, moved}}` on success.
+  """
+  def merge_tags(%Tag{id: id}, %Tag{id: id}), do: {:error, :same_tag}
+
+  def merge_tags(%Tag{} = source, %Tag{} = dest) do
+    Repo.transaction(fn ->
+      moved =
+        from(st in "sites_tags",
+          where: st.tag_id == type(^source.id, :binary_id)
+        )
+        |> Repo.aggregate(:count, :site_id)
+
+      # Add the dest tag to every site that has source but not dest, in
+      # one INSERT … SELECT so Ecto's type/2 casts handle the UUIDs.
+      insert_query =
+        from st in "sites_tags",
+          where: st.tag_id == type(^source.id, :binary_id),
+          where:
+            st.site_id not in subquery(
+              from(st2 in "sites_tags",
+                where: st2.tag_id == type(^dest.id, :binary_id),
+                select: st2.site_id
+              )
+            ),
+          select: %{tag_id: type(^dest.id, :binary_id), site_id: st.site_id}
+
+      Repo.insert_all("sites_tags", insert_query)
+
+      # FK is set to on_delete: :delete_all, so dropping the source tag
+      # cascades to its sites_tags rows.
+      Repo.delete!(source)
+
+      %{source_name: source.name, dest_name: dest.name, moved: moved}
+    end)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking tag changes.
 
   ## Examples

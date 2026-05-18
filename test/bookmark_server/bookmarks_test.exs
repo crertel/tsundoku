@@ -61,6 +61,47 @@ defmodule BookmarkServer.BookmarksTest do
       tag = tag_fixture()
       assert %Ecto.Changeset{} = Bookmarks.change_tag(tag)
     end
+
+    test "merge_tags/2 moves bookmarks onto the destination and deletes the source" do
+      user = AccountsFixtures.user_fixture()
+      {:ok, src} = Bookmarks.create_tag(%{name: "old", created_by_id: user.id})
+      {:ok, dest} = Bookmarks.create_tag(%{name: "new", created_by_id: user.id})
+
+      {:ok, site_a} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/a",
+          "display_name" => "A",
+          "created_by_id" => user.id,
+          "tags" => [src]
+        })
+
+      {:ok, site_b} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/b",
+          "display_name" => "B",
+          "created_by_id" => user.id,
+          "tags" => [src, dest]
+        })
+
+      assert {:ok, result} = Bookmarks.merge_tags(src, dest)
+      assert result.moved == 2
+
+      assert Bookmarks.get_tag(src.id) == nil
+
+      assert site_a |> BookmarkServer.Repo.preload(:tags, force: true) |> Map.get(:tags)
+             |> Enum.map(& &1.id) == [dest.id]
+
+      assert site_b |> BookmarkServer.Repo.preload(:tags, force: true) |> Map.get(:tags)
+             |> Enum.map(& &1.id) == [dest.id]
+    end
+
+    test "merge_tags/2 refuses to merge a tag into itself" do
+      user = AccountsFixtures.user_fixture()
+      {:ok, tag} = Bookmarks.create_tag(%{name: "alone", created_by_id: user.id})
+
+      assert {:error, :same_tag} = Bookmarks.merge_tags(tag, tag)
+      assert Bookmarks.get_tag(tag.id) != nil
+    end
   end
 
   describe "sites" do

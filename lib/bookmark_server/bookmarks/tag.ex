@@ -29,5 +29,9 @@ defmodule BookmarkServer.Bookmarks.Tag do
     tag
     |> cast(attrs, [:name, :created_by_id])
     |> validate_required([:name])
+    |> unique_constraint(:name,
+      name: :tag_name_created_by_unique_index,
+      message: "you already have a tag with this name"
+    )
   end
 end

@@ -47,6 +47,10 @@ defmodule BookmarkServer.Bookmarks.Site do
     ])
     |> validate_required([:url])
     |> validate_url(:url)
+    |> unique_constraint(:url,
+      name: :site_url_created_by_unique_index,
+      message: "you already have a bookmark at this URL"
+    )
     |> put_domain_from_url()
     |> put_assoc(:tags, Map.get(attrs, "tags", []))
   end
