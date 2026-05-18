@@ -3,41 +3,48 @@
 Running list of ideas. Loose categories, rough fun-to-effort estimates.
 None of this is committed to a roadmap; the file is a parking lot.
 
+Shipped things are removed from this file once they're done; check
+git log for what's actually in.
+
 ## Quality-of-life polish (small)
 
-- **Notes / description field on each site.** Free-form text. Reason
-  *why* you saved it.
-- **Auto-fetched metadata at save time.** Favicon, OpenGraph
-  description, page title (when the user-provided one is missing).
-  Cheap with `Floki` + an HTTP fetch.
-- **"Already saved" badge on the toolbar icon** of the extension when
-  you visit a page you've bookmarked. `/api/find_bookmark` already
-  supports it; just needs a content/script or active-tab listener.
-- **Keyboard shortcuts site-wide.** `j`/`k` to walk results, `/` to
-  focus search, `e` to edit, `x` to delete with confirmation, etc.
+- **User-editable notes field on each site.** The auto-fetched
+  description is great, but a separate `notes` field for *your*
+  commentary is independent and useful. Roughly: column +
+  changeset cast + a textarea on the show / form pages.
+- **"Already saved" badge in the extension.** `/api/find_bookmark`
+  already returns the bookmark on hit; the toolbar icon should show
+  a small indicator (badge color, checkmark, etc.) when the current
+  tab is saved. Bonus: hovering shows the tags.
+- **Keyboard shortcuts site-wide.** `j` / `k` to walk results, `/`
+  to focus search, `e` to edit the focused item, `x` to delete with
+  confirmation, `g s` / `g t` for nav. Pure JS, no LV state.
+- **Inline pill editing.** Click a filter pill on the sites page to
+  edit its value in place rather than X-and-retype. Replace the
+  pill markup with a tiny inline form when active.
 - **Saved searches.** Name a query like "elixir reading" and pin it
-  to the nav. URL plus an alias.
-- **Inline pill editing** — click a tag pill in the filter bar to
-  edit its value in place instead of remove-and-retype.
-- **Bulk actions** — select multiple sites in the results, then
-  tag/untag/delete/export the selection.
+  to the nav. A new schema, a `/searches` LV, a "Save" button on
+  the sites page that captures the current `?q=`.
+- **Bulk actions.** Select multiple rows on the sites page, then
+  tag / untag / delete / export the selection.
 
-## Search & content (medium)
+## Crawler / metadata extensions (medium)
 
-- **Snapshot / archive of the page at save time.** Either rendered
-  HTML or a Readability extract. Survives link rot. Cheap with Floki
-  + HTTP; nicer with a headless browser (Playwright / Chromedp).
-- **Full-text search across snapshots**, not just titles. Once you
-  have content stored, `to_tsvector` actually earns its keep — this
-  is the case where FTS beats trigram (stemming + word-set across
-  whole-page text). Trigram on titles remains.
-- **Link-rot checker.** Periodically `HEAD` every URL; flag 4xx/5xx
-  with timestamps. Optional auto-link-to-Wayback fallback.
-- **Smart tag suggestions** based on page content. Start with simple
-  keyword extraction against the user's existing tag vocabulary. AI
-  version (embed-then-cluster) is a bigger step.
+- **Link-rot checker.** A daily Oban cron job (Oban supports cron
+  natively) that re-crawls sites whose `crawled_at` is older than N
+  days, refreshing `crawl_status` so `status:http_404` is
+  self-maintaining. Cheap given the pipeline we already have.
+- **Page snapshot at save time.** Store a Readability-extracted
+  page body so titles / search survive link rot. This is the case
+  where `to_tsvector` actually earns its keep over title-trigram —
+  full-text against snapshot bodies. Two roads: HTML extract via
+  Floki + Readability port (cheap, lossy) or headless browser
+  (Playwright/Chromedp; richer, heavier).
+- **Smart tag suggestions.** Page content → suggest tags from the
+  user's existing tag vocabulary. Start with bag-of-words keyword
+  match; the embedding version is a bigger step.
 
-## Sharing / surfacing (medium)
+## Surfacing / sharing (medium)
 
 - **Per-tag or per-domain RSS/Atom feed.** Subscribe to your own
   "reading" tag externally.
@@ -51,13 +58,15 @@ None of this is committed to a roadmap; the file is a parking lot.
 ## Extension polish (small)
 
 - **Hotkey to save** (`Ctrl+Shift+D` or similar) with a one-click
-  default-tag flow.
+  default-tag flow that skips the popup.
 - **Inline tag editor** via content script — adds tags without
   opening a popup.
 - **Mobile Firefox support.** Extension code is probably close to
   working as-is; needs testing + manifest tweaks.
 - **AMO unlisted signing** so Firefox can install the `.xpi` from
-  the site without a developer-mode browser.
+  the site without a developer-mode browser. Mozilla signs unlisted
+  XPIs for free; you upload, they auto-review, you swap the file
+  on the server. One-time setup, ~5 minutes of clicking.
 
 ## Bigger swings
 
@@ -66,7 +75,7 @@ None of this is committed to a roadmap; the file is a parking lot.
 - **Mobile share target** (Android share intent → save to your
   server). Needs a small native shim or PWA with a share target.
 - **Multi-user sharing primitives.** Invites, follow, collections.
-  Significant architectural delta — requires permissions model,
+  Significant architectural delta — requires a permissions model,
   not just per-user scoping.
 
 ## Ops / durability
@@ -75,14 +84,21 @@ None of this is committed to a roadmap; the file is a parking lot.
   for migrations and the paranoid.
 - **Health / status page** with DB latency, queue depths if any.
 - **URL search-and-replace** for the case where a site moves
-  domains and you want to bulk-rewrite saved URLs.
+  domains and you want to bulk-rewrite saved URLs (e.g.
+  twitter.com → x.com).
+- **Re-fetch failed favicons.** Right now a failed favicon fetch
+  records a row with `data: nil` and we never try again. A
+  scheduled job to re-attempt those (maybe with exponential
+  backoff) would let transient outages self-heal.
+- **Periodic Oban job pruning.** Old completed/discarded rows pile
+  up in `oban_jobs`; Oban has a `Pruner` plugin for this.
 
 ## Open questions
 
-- Should snapshots be opt-in per save, or always-on? (Storage costs
-  vs. completeness.)
-- If link-rot is detected, do we delete, archive, or just flag? My
-  default would be "flag, with a button to either link-to-Wayback
-  or delete."
-- For full-text snapshot search, the indexing strategy: lazy on
-  first search? Background job at save? Inline (slow saves)?
+- For snapshots, opt-in per save or always-on? Storage cost vs.
+  completeness.
+- For link-rot detection, do we delete, archive, or just flag?
+  Default would be flag + offer "link to Wayback" / "delete"
+  buttons on the show page.
+- For full-text snapshot search, indexing strategy: lazy on first
+  search, background job at save, or inline (slow saves)?
