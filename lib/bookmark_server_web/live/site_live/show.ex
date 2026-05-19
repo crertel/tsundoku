@@ -8,6 +8,15 @@ defmodule BookmarkServerWeb.SiteLive.Show do
   end
 
   @impl true
+  def handle_event("re_enrich", _params, socket) do
+    BookmarkServer.Metadata.enrich_async(socket.assigns.site)
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Re-fetch queued. Refresh in a moment to see updates.")}
+  end
+
+  @impl true
   def handle_params(%{"id" => id}, _, socket) do
     site =
       Bookmarks.get_site!(id)
@@ -72,6 +81,14 @@ defmodule BookmarkServerWeb.SiteLive.Show do
           >
             archive.ph
           </a>
+          <button
+            type="button"
+            phx-click="re_enrich"
+            class="rounded-md border border-slate-400 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-200"
+            title="Re-fetch page metadata (title, description, favicon)"
+          >
+            Re-fetch
+          </button>
           <.link
             patch={Routes.site_show_path(@socket, :edit, @site)}
             class="rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"

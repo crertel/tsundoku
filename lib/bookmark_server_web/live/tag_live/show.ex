@@ -24,8 +24,52 @@ defmodule BookmarkServerWeb.TagLive.Show do
      |> assign(:other_tags, other_tags)
      |> assign(:merge_dest, "")
      |> assign(:bookmark_count, Bookmarks.count_sites_for_tag(tag))
-     |> assign(:co_tags, Bookmarks.list_co_occurring_tags(tag, limit: 20))}
+     |> assign(:co_tags, Bookmarks.list_co_occurring_tags(tag, limit: 20))
+     |> assign(:monthly_counts, fill_monthly_gaps(Bookmarks.site_count_by_month_for_tag(tag)))}
   end
+
+  # Fills missing months between the first and last sampled month with zeros
+  # so the sparkline shows a continuous timeline.
+  defp fill_monthly_gaps([]), do: []
+
+  defp fill_monthly_gaps(entries) do
+    counts = Map.new(entries, fn %{month: m, count: c} -> {m, c} end)
+    first = entries |> List.first() |> Map.get(:month)
+    last = entries |> List.last() |> Map.get(:month)
+
+    first
+    |> Stream.iterate(&Date.shift(&1, month: 1))
+    |> Enum.take_while(&(Date.compare(&1, last) != :gt))
+    |> Enum.map(fn m -> %{month: m, count: Map.get(counts, m, 0)} end)
+  end
+
+  defp sparkline_points(entries, width, height) do
+    case entries do
+      [] ->
+        ""
+
+      [%{count: c}] ->
+        # Single point: a flat baseline so the line is still visible.
+        "0,#{height} #{width},#{height - point_y(c, c, height)}"
+
+      _ ->
+        max_count = entries |> Enum.map(& &1.count) |> Enum.max()
+        n = length(entries)
+        step = if n > 1, do: width / (n - 1), else: 0
+
+        entries
+        |> Enum.with_index()
+        |> Enum.map(fn {%{count: c}, i} ->
+          "#{Float.round(i * step, 2)},#{height - point_y(c, max_count, height)}"
+        end)
+        |> Enum.join(" ")
+    end
+  end
+
+  defp point_y(_count, 0, _height), do: 0
+  defp point_y(count, max, height), do: count / max * (height - 4) + 2
+
+  defp format_month(%Date{} = d), do: Calendar.strftime(d, "%b %Y")
 
   defp tag_filter_path(socket, name) do
     Routes.site_index_path(socket, :index, q: Bookmarks.query_fragment("tag", name))
@@ -157,6 +201,25 @@ defmodule BookmarkServerWeb.TagLive.Show do
             <%= @tag.description %>
           </dd>
         </dl>
+      </div>
+
+      <div :if={length(@monthly_counts) > 1} class="mb-6 rounded-lg border border-slate-400 bg-slate-100 p-6 shadow-sm">
+        <h2 class="text-lg font-semibold text-slate-950">Saves over time</h2>
+        <p class="mt-1 text-sm text-slate-700">
+          Bookmarks tagged <strong><%= @tag.name %></strong> per month,
+          from <%= format_month(List.first(@monthly_counts).month) %>
+          to <%= format_month(List.last(@monthly_counts).month) %>.
+        </p>
+        <svg viewBox="0 0 320 60" class="mt-4 h-16 w-full" preserveAspectRatio="none">
+          <polyline
+            fill="none"
+            stroke="#0284c7"
+            stroke-width="2"
+            stroke-linejoin="round"
+            stroke-linecap="round"
+            points={sparkline_points(@monthly_counts, 320, 60)}
+          />
+        </svg>
       </div>
 
       <div :if={@co_tags != []} class="mb-6 rounded-lg border border-slate-400 bg-slate-100 p-6 shadow-sm">

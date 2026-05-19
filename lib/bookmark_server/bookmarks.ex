@@ -171,6 +171,29 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   @doc """
+  Returns the number of sites tagged `tag` per calendar month for the
+  user, sorted ascending by month. Months with zero saves are omitted —
+  the renderer is responsible for filling gaps if a regular series is
+  needed. Each entry is `%{month: ~D[YYYY-MM-01], count: n}`.
+  """
+  def site_count_by_month_for_tag(%Tag{id: tag_id, created_by_id: user_id}) do
+    from(st in "sites_tags",
+      join: s in Site,
+      on: s.id == st.site_id,
+      where:
+        st.tag_id == type(^tag_id, :binary_id) and
+          s.created_by_id == ^user_id,
+      group_by: fragment("date_trunc('month', ?)", s.inserted_at),
+      order_by: fragment("date_trunc('month', ?)", s.inserted_at),
+      select: %{
+        month: fragment("date_trunc('month', ?)::date", s.inserted_at),
+        count: count(s.id)
+      }
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Returns the tags that most frequently appear alongside `tag` on the
   user's sites, sorted by descending co-occurrence count. Each entry is
   `%{id, name, count}`. Limited to `opts[:limit]` (default 20).

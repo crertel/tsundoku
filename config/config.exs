@@ -20,6 +20,7 @@ config :bookmark_server, Oban,
   # serialization is enforced inside the worker via DomainMutex so we
   # never hit the same host concurrently.
   queues: [metadata: 5],
+  plugins: [{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7}],
   repo: BookmarkServer.Repo
 
 # Configures the endpoint
