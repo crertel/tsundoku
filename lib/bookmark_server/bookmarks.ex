@@ -957,6 +957,21 @@ defmodule BookmarkServer.Bookmarks do
   def get_site!(id), do: Repo.get!(Site, id)
 
   @doc """
+  Returns a random site owned by `user_id`, or `nil` if the user has
+  none. Uses `ORDER BY RANDOM() LIMIT 1` — fine at personal scale; if a
+  user ever hits hundreds of thousands of sites, swap to an offset
+  approach.
+  """
+  def random_user_site(user_id) do
+    from(s in Site,
+      where: s.created_by_id == ^user_id,
+      order_by: fragment("RANDOM()"),
+      limit: 1
+    )
+    |> Repo.one()
+  end
+
+  @doc """
   Gets a single site by id, with no ownership check. See `get_site!/1` —
   every callsite needs an explicit ownership check.
   """

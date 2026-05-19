@@ -150,6 +150,15 @@ button[type="button"]#add-tag-btn:hover {
   background: #cbd5e1;
 }
 
+button[type="button"]#yolo-btn {
+  margin-left: auto;
+  background: #7c3aed;
+}
+
+button[type="button"]#yolo-btn:hover {
+  background: #6d28d9;
+}
+
 .actions {
   display: flex;
   gap: 8px;

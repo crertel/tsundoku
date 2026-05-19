@@ -294,6 +294,18 @@ defmodule BookmarkServerWeb.ApiController do
 
   def find_bookmark(conn, _), do: conn |> put_status(400) |> json(%{}) |> halt()
 
+  def random_bookmark(conn, _params) do
+    user = conn.assigns.user
+
+    case Bookmarks.random_user_site(user.id) do
+      %Site{} = site ->
+        json(conn, %{bookmark: %{id: site.id, url: site.url, display_name: site.display_name}})
+
+      nil ->
+        conn |> put_status(404) |> json(%{}) |> halt()
+    end
+  end
+
   def import_bookmarks(conn, %{"file" => %Plug.Upload{path: path}}) do
     user = conn.assigns.user
 

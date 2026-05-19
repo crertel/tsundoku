@@ -22,14 +22,6 @@ defmodule BookmarkServerWeb.Layouts do
         </div>
         <div>
           <.link
-            href={~p"/backup"}
-            class="rounded-md px-3 py-2 font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950"
-          >
-            Backup
-          </.link>
-        </div>
-        <div>
-          <.link
             href={~p"/admin/oban"}
             class="rounded-md px-3 py-2 font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950"
           >

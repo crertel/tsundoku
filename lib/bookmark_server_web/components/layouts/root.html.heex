@@ -50,12 +50,13 @@
                 Sites
               </.link>
             </div>
-            <div>
+            <div :if={assigns[:current_user]}>
               <.link
-                navigate={~p"/import"}
-                class="rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950"
+                href={~p"/yolo"}
+                class="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"
+                title="Open a random saved bookmark"
               >
-                Import
+                🎲 YOLO
               </.link>
             </div>
           </div>

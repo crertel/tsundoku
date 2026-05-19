@@ -37,6 +37,16 @@ export async function listTags() {
   return tags;
 }
 
+export async function randomBookmark() {
+  try {
+    const { bookmark } = await request("/api/random_bookmark");
+    return bookmark;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
 export async function findBookmark(url) {
   try {
     const { bookmark } = await request(

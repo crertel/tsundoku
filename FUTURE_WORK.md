@@ -9,50 +9,39 @@ git log for what's actually in.
 ## At-a-glance
 
 **QoL polish (small)**
-1. User-editable notes field per site
-2. "Already saved" badge in the extension
-3. Site-wide keyboard shortcuts (`j`/`k`/`/`/`e`/`x`)
-4. Inline pill editing
-5. Saved searches
-6. Bulk actions on selected sites
+1. Site-wide keyboard shortcuts (`j`/`k`/`/`/`e`/`x`)
+2. Inline pill editing
+3. Saved searches
+4. Bulk actions on selected sites
 
 **Crawler / metadata (medium)**
-7. Link-rot checker (Oban cron)
-8. Page snapshot at save time (+ full-text search across snapshots)
-9. Smart tag suggestions from page content
+5. Link-rot checker (Oban cron)
+6. Page snapshot at save time (+ full-text search across snapshots)
+7. Smart tag suggestions from page content
 
 **Surfacing / sharing (medium)**
-10. Per-tag / per-domain RSS feed
-11. Public read-only shareable collections
-12. Random / serendipity view
-13. Per-tag dashboards (saves over time, co-occurring tags)
+8. Per-tag / per-domain RSS feed
+9. Public read-only shareable collections
+10. Per-tag dashboards (saves over time, co-occurring tags)
 
 **Extension polish (small)**
-14. Hotkey-to-save with default tags
-15. Inline tag editor via content script (skip the popup)
-16. Mobile Firefox support
-17. AMO unlisted signing for one-click install
+11. Hotkey-to-save with default tags
+12. Inline tag editor via content script (skip the popup)
+13. Mobile Firefox support
+14. AMO unlisted signing for one-click install
 
 **Bigger swings**
-18. Reading-status workflow (unread / read / archived)
-19. Mobile share target
-20. Multi-user sharing primitives (invites, follow, collections)
+15. Reading-status workflow (unread / read / archived)
+16. Mobile share target
+17. Multi-user sharing primitives (invites, follow, collections)
 
 **Ops / durability**
-21. URL search-and-replace (e.g. twitter.com → x.com)
-22. Re-fetch failed favicons
-23. Periodic Oban job pruning
+18. URL search-and-replace (e.g. twitter.com → x.com)
+19. Re-fetch failed favicons
+20. Periodic Oban job pruning
 
 ## Quality-of-life polish (small)
 
-- **User-editable notes field on each site.** The auto-fetched
-  description is great, but a separate `notes` field for *your*
-  commentary is independent and useful. Roughly: column +
-  changeset cast + a textarea on the show / form pages.
-- **"Already saved" badge in the extension.** `/api/find_bookmark`
-  already returns the bookmark on hit; the toolbar icon should show
-  a small indicator (badge color, checkmark, etc.) when the current
-  tab is saved. Bonus: hovering shows the tags.
 - **Keyboard shortcuts site-wide.** `j` / `k` to walk results, `/`
   to focus search, `e` to edit the focused item, `x` to delete with
   confirmation, `g s` / `g t` for nav. Pure JS, no LV state.
@@ -87,8 +76,6 @@ git log for what's actually in.
   "reading" tag externally.
 - **Public read-only collections.** Curated lists with a
   shareable URL, opt-in per-list (default private).
-- **Random / serendipity view.** "Show me three things I saved and
-  haven't revisited in a year." Encourages re-reading.
 - **Per-tag dashboards** — graph saves over time, top co-occurring
   tags, etc.
 
@@ -117,9 +104,6 @@ git log for what's actually in.
 
 ## Ops / durability
 
-- **Backup / restore.** JSON dump endpoint + import command. Useful
-  for migrations and the paranoid.
-- **Health / status page** with DB latency, queue depths if any.
 - **URL search-and-replace** for the case where a site moves
   domains and you want to bulk-rewrite saved URLs (e.g.
   twitter.com → x.com).

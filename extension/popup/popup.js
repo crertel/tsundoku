@@ -2,6 +2,7 @@ import { getConfig } from "../lib/storage.js";
 import {
   listTags,
   findBookmark,
+  randomBookmark,
   createBookmark,
   updateBookmark,
 } from "../lib/api.js";
@@ -21,6 +22,7 @@ const els = {
   tagSuggestions: document.getElementById("tag-suggestions"),
   saveBtn: document.getElementById("save-btn"),
   cancelBtn: document.getElementById("cancel-btn"),
+  yoloBtn: document.getElementById("yolo-btn"),
   status: document.getElementById("status"),
 };
 
@@ -88,6 +90,7 @@ function wireUp() {
     }
   });
   els.cancelBtn.addEventListener("click", () => window.close());
+  els.yoloBtn.addEventListener("click", onYolo);
   els.saveForm.addEventListener("submit", onSubmit);
   els.activeTags.addEventListener("click", (e) => {
     if (e.target.matches("button[data-tag]")) {
@@ -146,6 +149,24 @@ async function onSubmit(e) {
   } catch (err) {
     setStatus(`Error: ${err.body?.msg || err.message}`, "error");
     els.saveBtn.disabled = false;
+  }
+}
+
+async function onYolo() {
+  setStatus("Picking…");
+  els.yoloBtn.disabled = true;
+  try {
+    const bookmark = await randomBookmark();
+    if (!bookmark) {
+      setStatus("No bookmarks yet.", "error");
+      els.yoloBtn.disabled = false;
+      return;
+    }
+    await chrome.tabs.create({ url: bookmark.url });
+    window.close();
+  } catch (err) {
+    setStatus(`Error: ${err.body?.msg || err.message}`, "error");
+    els.yoloBtn.disabled = false;
   }
 }
 

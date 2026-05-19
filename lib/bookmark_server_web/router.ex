@@ -94,6 +94,7 @@ defmodule BookmarkServerWeb.Router do
     get "/test", ApiController, :test
     get "/tags", ApiController, :list_tags
     get "/find_bookmark", ApiController, :find_bookmark
+    get "/random_bookmark", ApiController, :random_bookmark
     get "/bookmarks/:bookmark_id", ApiController, :get_bookmark
     get "/tags/:tag_id", ApiController, :get_tag
     post "/create_bookmark", ApiController, :create_bookmark
@@ -132,6 +133,7 @@ defmodule BookmarkServerWeb.Router do
 
     get "/extension", ExtensionController, :show
     get "/backup/export", BackupController, :export
+    get "/yolo", YoloController, :show
 
     oban_dashboard "/admin/oban"
   end
