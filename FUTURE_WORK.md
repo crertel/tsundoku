@@ -39,11 +39,9 @@ git log for what's actually in.
 20. Multi-user sharing primitives (invites, follow, collections)
 
 **Ops / durability**
-21. Backup / restore (JSON dump + import)
-22. Health / status page
-23. URL search-and-replace (e.g. twitter.com → x.com)
-24. Re-fetch failed favicons
-25. Periodic Oban job pruning
+21. URL search-and-replace (e.g. twitter.com → x.com)
+22. Re-fetch failed favicons
+23. Periodic Oban job pruning
 
 ## Quality-of-life polish (small)
 

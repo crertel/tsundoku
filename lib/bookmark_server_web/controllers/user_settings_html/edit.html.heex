@@ -5,7 +5,7 @@
     </div>
   </div>
 
-  <div class="grid gap-6 lg:grid-cols-2">
+  <div class="grid gap-6 lg:grid-cols-2 mb-8">
     <section class="rounded-lg border border-slate-400 bg-slate-100 p-6 shadow-sm">
       <h3 class="text-lg font-semibold text-slate-950">Change email</h3>
 
@@ -104,5 +104,123 @@
         </.form>
       </div>
     </section>
+  </div>
+
+  <div class="rounded-lg border-2 border-rose-300 bg-rose-50 p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-rose-900">Danger zone</h2>
+    <p class="mt-1 text-sm text-rose-900">
+      Both actions are permanent. There is no undo. Type your email
+      and current password to confirm.
+    </p>
+
+    <div class="mt-6 grid gap-6 lg:grid-cols-2">
+      <section class="rounded-md border border-rose-300 bg-white p-5">
+        <h3 class="text-base font-semibold text-rose-900">Empty account</h3>
+        <p class="mt-1 text-sm text-rose-900">
+          Deletes every bookmark and every tag in your account. Your
+          login stays, so you can start over.
+        </p>
+
+        <.form
+          :let={_f}
+          for={%{}}
+          as={:empty}
+          action={~p"/users/settings"}
+          method="put"
+          class="mt-4 space-y-3"
+        >
+          <input type="hidden" name="action" value="empty_account" />
+
+          <div>
+            <label class="block text-sm font-medium text-rose-900" for="empty_email">
+              Type your email (<%= @current_user.email %>)
+            </label>
+            <input
+              id="empty_email"
+              type="email"
+              name="confirm_email"
+              required
+              autocomplete="off"
+              class="mt-1 block w-full rounded-md border border-rose-400 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-rose-900" for="empty_password">
+              Current password
+            </label>
+            <input
+              id="empty_password"
+              type="password"
+              name="current_password"
+              required
+              class="mt-1 block w-full rounded-md border border-rose-400 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+            />
+          </div>
+
+          <button
+            type="submit"
+            data-confirm="Delete every bookmark and tag in this account? This cannot be undone."
+            class="rounded-md bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700"
+          >
+            Empty account
+          </button>
+        </.form>
+      </section>
+
+      <section class="rounded-md border border-rose-300 bg-white p-5">
+        <h3 class="text-base font-semibold text-rose-900">Deactivate account</h3>
+        <p class="mt-1 text-sm text-rose-900">
+          Wipes all bookmarks and tags <em>and</em> deletes your
+          login. You will be logged out and cannot sign back in.
+        </p>
+
+        <.form
+          :let={_f}
+          for={%{}}
+          as={:deactivate}
+          action={~p"/users/settings"}
+          method="put"
+          class="mt-4 space-y-3"
+        >
+          <input type="hidden" name="action" value="deactivate_account" />
+
+          <div>
+            <label class="block text-sm font-medium text-rose-900" for="deactivate_email">
+              Type your email (<%= @current_user.email %>)
+            </label>
+            <input
+              id="deactivate_email"
+              type="email"
+              name="confirm_email"
+              required
+              autocomplete="off"
+              class="mt-1 block w-full rounded-md border border-rose-400 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-rose-900" for="deactivate_password">
+              Current password
+            </label>
+            <input
+              id="deactivate_password"
+              type="password"
+              name="current_password"
+              required
+              class="mt-1 block w-full rounded-md border border-rose-400 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
+            />
+          </div>
+
+          <button
+            type="submit"
+            data-confirm="Delete this account and all of its data forever?"
+            class="rounded-md bg-rose-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-800"
+          >
+            Deactivate account
+          </button>
+        </.form>
+      </section>
+    </div>
   </div>
 </section>

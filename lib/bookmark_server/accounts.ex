@@ -346,4 +346,23 @@ defmodule BookmarkServer.Accounts do
       {:error, :user, changeset, _} -> {:error, changeset}
     end
   end
+
+  @doc """
+  Permanently deletes a user, all their session/email tokens, and (by
+  cascade on `created_by_id` FKs) all of their sites, tags, and join
+  rows. The caller is responsible for verifying the password first.
+  """
+  def delete_user(%User{} = user) do
+    Ecto.Multi.new()
+    |> Ecto.Multi.delete_all(:tokens, UserToken.user_and_contexts_query(user, :all))
+    |> Ecto.Multi.run(:wipe_data, fn _repo, _changes ->
+      BookmarkServer.Bookmarks.empty_user_data(user)
+    end)
+    |> Ecto.Multi.delete(:user, user)
+    |> Repo.transaction()
+    |> case do
+      {:ok, _} -> :ok
+      {:error, _step, reason, _} -> {:error, reason}
+    end
+  end
 end

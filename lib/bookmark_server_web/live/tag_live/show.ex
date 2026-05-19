@@ -48,6 +48,24 @@ defmodule BookmarkServerWeb.TagLive.Show do
   defp page_title(:edit), do: "Edit Tag"
 
   @impl true
+  def handle_event("delete_tagged_sites", %{"confirm" => %{"name" => typed}}, socket) do
+    tag = socket.assigns.tag
+
+    if String.trim(typed) == tag.name do
+      {count, _} = Bookmarks.delete_sites_for_tag(tag)
+
+      {:noreply,
+       socket
+       |> put_flash(:info, "Deleted #{count} bookmark(s) tagged #{inspect(tag.name)}.")
+       |> assign(:bookmark_count, Bookmarks.count_sites_for_tag(tag))
+       |> assign(:co_tags, Bookmarks.list_co_occurring_tags(tag, limit: 20))}
+    else
+      {:noreply,
+       put_flash(socket, :error, "Confirmation didn't match the tag name. Nothing deleted.")}
+    end
+  end
+
+  @impl true
   def handle_event("merge", %{"merge" => %{"dest_name" => dest_name}}, socket) do
     user = socket.assigns.current_user
     source = socket.assigns.tag
@@ -160,6 +178,33 @@ defmodule BookmarkServerWeb.TagLive.Show do
             </.link>
           <% end %>
         </div>
+      </div>
+
+      <div :if={@bookmark_count > 0} class="mb-6 rounded-lg border border-rose-300 bg-rose-50 p-6 shadow-sm">
+        <h2 class="text-lg font-semibold text-rose-900">Delete all bookmarks with this tag</h2>
+        <p class="mt-1 text-sm text-rose-900">
+          Permanently deletes every bookmark you have tagged
+          <strong><%= @tag.name %></strong>. The tag itself is kept.
+          To confirm, type the tag name below. This cannot be undone.
+        </p>
+
+        <form phx-submit="delete_tagged_sites" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            type="text"
+            name="confirm[name]"
+            placeholder={"Type \"#{@tag.name}\" to confirm"}
+            required
+            autocomplete="off"
+            class="block w-full rounded-md border border-rose-400 bg-white px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200 sm:w-80"
+          />
+          <button
+            type="submit"
+            data-confirm={"Delete every bookmark tagged \"#{@tag.name}\"? This cannot be undone."}
+            class="rounded-md bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700"
+          >
+            Delete <%= @bookmark_count %> bookmark<%= if @bookmark_count == 1, do: "", else: "s" %>
+          </button>
+        </form>
       </div>
 
       <div class="rounded-lg border border-slate-400 bg-slate-100 p-6 shadow-sm">

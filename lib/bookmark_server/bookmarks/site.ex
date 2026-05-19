@@ -11,6 +11,7 @@ defmodule BookmarkServer.Bookmarks.Site do
     field :display_name, :string
     field :domain, :string
     field :description, :string
+    field :notes, :string
     field :favicon_url, :string
     field :favicon_data, :binary
     field :favicon_content_type, :string
@@ -36,6 +37,7 @@ defmodule BookmarkServer.Bookmarks.Site do
     |> cast(attrs, [
       :url,
       :display_name,
+      :notes,
       :created_by_id,
       :description,
       :favicon_url,

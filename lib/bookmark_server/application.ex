@@ -12,6 +12,7 @@ defmodule BookmarkServer.Application do
       {Phoenix.PubSub, name: BookmarkServer.PubSub},
       BookmarkServer.DomainMutex,
       {Oban, Application.fetch_env!(:bookmark_server, Oban)},
+      BookmarkServerWeb.Presence,
       BookmarkServerWeb.Endpoint
     ]
 

@@ -14,6 +14,7 @@ const els = {
   saveForm: document.getElementById("save-form"),
   titleInput: document.getElementById("title-input"),
   urlInput: document.getElementById("url-input"),
+  notesInput: document.getElementById("notes-input"),
   activeTags: document.getElementById("active-tags"),
   newTagInput: document.getElementById("new-tag-input"),
   addTagBtn: document.getElementById("add-tag-btn"),
@@ -70,6 +71,7 @@ async function init() {
     els.subheading.textContent = "This page is already saved.";
     els.saveBtn.textContent = "Update";
     els.titleInput.value = existing.display_name || tab.title || "";
+    els.notesInput.value = existing.notes || "";
     state.activeTags = [...(existing.tags || [])];
     renderActiveTags();
   }
@@ -129,6 +131,7 @@ async function onSubmit(e) {
     title: els.titleInput.value.trim(),
     url: els.urlInput.value.trim(),
     tags: state.activeTags,
+    notes: els.notesInput.value,
   };
 
   try {

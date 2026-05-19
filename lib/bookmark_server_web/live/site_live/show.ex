@@ -138,6 +138,11 @@ defmodule BookmarkServerWeb.SiteLive.Show do
           </div>
         </header>
 
+        <div :if={@site.notes not in [nil, ""]} class="border-b border-slate-300 px-6 py-5">
+          <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Notes</h3>
+          <p class="mt-2 whitespace-pre-line text-sm text-slate-800"><%= @site.notes %></p>
+        </div>
+
         <div :if={@site.description not in [nil, ""]} class="border-b border-slate-300 px-6 py-5">
           <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Description</h3>
           <p class="mt-2 whitespace-pre-line text-sm text-slate-800"><%= @site.description %></p>

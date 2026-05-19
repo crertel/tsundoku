@@ -24,8 +24,9 @@ defmodule BookmarkServerWeb.ApiController do
     conn |> send_resp(400, "{}") |> halt
   end
 
-  def create_bookmark(conn, %{"title" => title, "url" => url, "tags" => tags}) do
+  def create_bookmark(conn, %{"title" => title, "url" => url, "tags" => tags} = params) do
     user = conn.assigns.user
+    notes = Map.get(params, "notes")
 
     saved_tags =
       Enum.reduce(tags, [], fn tag, acc ->
@@ -41,6 +42,7 @@ defmodule BookmarkServerWeb.ApiController do
       Bookmarks.create_site(%{
         display_name: title,
         url: url,
+        notes: notes,
         created_by_id: user.id,
         tags: saved_tags
       })
@@ -93,13 +95,17 @@ defmodule BookmarkServerWeb.ApiController do
     conn |> send_resp(404, "{}") |> halt
   end
 
-  def update_bookmark(conn, %{
-        "bookmark_id" => bookmark_id,
-        "title" => title,
-        "url" => url,
-        "tags" => tags
-      }) do
+  def update_bookmark(
+        conn,
+        %{
+          "bookmark_id" => bookmark_id,
+          "title" => title,
+          "url" => url,
+          "tags" => tags
+        } = params
+      ) do
     user = conn.assigns.user
+    notes = Map.get(params, "notes")
     bookmark = Bookmarks.get_site(bookmark_id) |> BookmarkServer.Repo.preload(:created_by)
 
     cond do
@@ -130,6 +136,7 @@ defmodule BookmarkServerWeb.ApiController do
             Bookmarks.update_site(bookmark, %{
               "display_name" => title,
               "url" => url,
+              "notes" => notes,
               "created_by_id" => user.id,
               "tags" => new_tags
             })
@@ -275,6 +282,7 @@ defmodule BookmarkServerWeb.ApiController do
             id: site.id,
             url: site.url,
             display_name: site.display_name,
+            notes: site.notes,
             tags: Enum.map(site.tags, & &1.name)
           }
         })

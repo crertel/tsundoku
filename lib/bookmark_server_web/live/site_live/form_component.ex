@@ -149,6 +149,16 @@ defmodule BookmarkServerWeb.SiteLive.FormComponent do
     </div>
 
     <div>
+      <%= label f, :notes, class: "block text-sm font-medium text-slate-700" do %> Notes <% end %>
+      <p class="mt-1 text-xs text-slate-500">
+        Your own commentary. The auto-fetched description from the page
+        is shown separately.
+      </p>
+        <%= textarea f, :notes, rows: 4, class: "mt-2 block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"%>
+        <%= error_tag f, :notes %>
+    </div>
+
+    <div>
       <div class="text-sm font-medium text-slate-700">
         Tags
       </div>

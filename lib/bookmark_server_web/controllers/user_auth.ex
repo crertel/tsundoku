@@ -179,7 +179,16 @@ defmodule BookmarkServerWeb.UserAuth do
       end)
 
     case socket.assigns[:current_user] do
-      %BookmarkServer.Accounts.User{} ->
+      %BookmarkServer.Accounts.User{} = user ->
+        if Phoenix.LiveView.connected?(socket) do
+          BookmarkServerWeb.Presence.track(
+            self(),
+            "users:online",
+            user.id,
+            %{email: user.email, online_at: System.system_time(:second)}
+          )
+        end
+
         {:cont, socket}
 
       _ ->

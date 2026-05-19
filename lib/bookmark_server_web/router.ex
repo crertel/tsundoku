@@ -119,6 +119,10 @@ defmodule BookmarkServerWeb.Router do
 
       live "/import", ImportLive.Index, :index
 
+      live "/backup", BackupLive.Index, :index
+
+      live "/admin/health", HealthLive.Index, :index
+
       live "/sites", SiteLive.Index, :index
       live "/sites/new", SiteLive.Index, :new
       live "/sites/:id/edit", SiteLive.Index, :edit
@@ -127,6 +131,7 @@ defmodule BookmarkServerWeb.Router do
     end
 
     get "/extension", ExtensionController, :show
+    get "/backup/export", BackupController, :export
 
     oban_dashboard "/admin/oban"
   end

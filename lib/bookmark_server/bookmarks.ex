@@ -117,6 +117,47 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   @doc """
+  Deletes every site owned by `tag.created_by_id` that carries `tag`.
+  Does not delete the tag itself (so the empty tag remains for re-use).
+  Caller must verify ownership. Returns `{deleted_count, nil}`.
+  """
+  def delete_sites_for_tag(%Tag{id: tag_id, created_by_id: user_id}) do
+    site_ids =
+      from(st in "sites_tags",
+        join: s in Site,
+        on: s.id == st.site_id,
+        where:
+          st.tag_id == type(^tag_id, :binary_id) and
+            s.created_by_id == ^user_id,
+        select: s.id
+      )
+      |> Repo.all()
+
+    from(s in Site, where: s.id in ^site_ids)
+    |> Repo.delete_all()
+  end
+
+  @doc """
+  Deletes every site and every tag owned by the user, in a single
+  transaction. Sites are deleted first so their `sites_tags` rows
+  cascade off; tags are then deleted. Returns
+  `{:ok, %{sites_deleted, tags_deleted}}`.
+  """
+  def empty_user_data(%BookmarkServer.Accounts.User{id: user_id}) do
+    Repo.transaction(fn ->
+      {sites_deleted, _} =
+        from(s in Site, where: s.created_by_id == ^user_id)
+        |> Repo.delete_all()
+
+      {tags_deleted, _} =
+        from(t in Tag, where: t.created_by_id == ^user_id)
+        |> Repo.delete_all()
+
+      %{sites_deleted: sites_deleted, tags_deleted: tags_deleted}
+    end)
+  end
+
+  @doc """
   Counts the user's sites tagged with the given tag.
   """
   def count_sites_for_tag(%Tag{id: tag_id, created_by_id: user_id}) do
@@ -1041,6 +1082,161 @@ defmodule BookmarkServer.Bookmarks do
         end
       end)
   end
+
+  @backup_version 1
+
+  @doc """
+  Returns a serializable map of every site and tag owned by `user`,
+  suitable for `Jason.encode!/1`. Idempotent restore relies on
+  `(url, created_by_id)` and `(name, created_by_id)` uniqueness.
+  """
+  def export_user(%BookmarkServer.Accounts.User{id: user_id, email: email}) do
+    tags =
+      from(t in Tag,
+        where: t.created_by_id == ^user_id,
+        order_by: t.name,
+        select: %{name: t.name, description: t.description}
+      )
+      |> Repo.all()
+
+    sites =
+      from(s in Site,
+        where: s.created_by_id == ^user_id,
+        order_by: s.inserted_at,
+        preload: :tags
+      )
+      |> Repo.all()
+      |> Enum.map(fn s ->
+        %{
+          url: s.url,
+          display_name: s.display_name,
+          notes: s.notes,
+          description: s.description,
+          favicon_url: s.favicon_url,
+          favicon_data_b64: if(s.favicon_data, do: Base.encode64(s.favicon_data), else: nil),
+          favicon_content_type: s.favicon_content_type,
+          og_image_url: s.og_image_url,
+          crawled_at: s.crawled_at && DateTime.to_iso8601(s.crawled_at),
+          crawl_status: s.crawl_status,
+          inserted_at: s.inserted_at && DateTime.to_iso8601(s.inserted_at),
+          tags: Enum.map(s.tags, & &1.name)
+        }
+      end)
+
+    %{
+      version: @backup_version,
+      exported_at: DateTime.utc_now() |> DateTime.to_iso8601(),
+      user_email: email,
+      tags: tags,
+      sites: sites
+    }
+  end
+
+  @doc """
+  Idempotently imports a backup map (as produced by `export_user/1`) into
+  the given user's data. Tags missing for the user are created. Sites
+  missing for the user are created. Sites that already exist (by URL)
+  are *left alone*, but their tag set is unioned with the dump's tags
+  (so re-restoring after re-tagging doesn't lose tags). Tags are
+  reattached by name. Returns
+  `{:ok, %{tags_created, sites_created, sites_skipped}}`.
+  """
+  def restore_user(%BookmarkServer.Accounts.User{id: user_id}, %{} = dump) do
+    case Map.get(dump, "version") || Map.get(dump, :version) do
+      v when v in [1, "1"] -> do_restore(user_id, dump)
+      other -> {:error, {:unsupported_version, other}}
+    end
+  end
+
+  defp do_restore(user_id, dump) do
+    dump_tags = Map.get(dump, "tags") || Map.get(dump, :tags) || []
+    dump_sites = Map.get(dump, "sites") || Map.get(dump, :sites) || []
+
+    Repo.transaction(fn ->
+      tags_created =
+        Enum.reduce(dump_tags, 0, fn t, acc ->
+          name = Map.get(t, "name") || Map.get(t, :name)
+          description = Map.get(t, "description") || Map.get(t, :description)
+
+          case get_user_tag_by_name(name, user_id) do
+            %Tag{} ->
+              acc
+
+            nil ->
+              %Tag{}
+              |> Tag.changeset(%{
+                name: name,
+                description: description,
+                created_by_id: user_id
+              })
+              |> Repo.insert!()
+
+              acc + 1
+          end
+        end)
+
+      tag_by_name =
+        from(t in Tag, where: t.created_by_id == ^user_id, select: {t.name, t})
+        |> Repo.all()
+        |> Map.new()
+
+      {sites_created, sites_skipped} =
+        Enum.reduce(dump_sites, {0, 0}, fn s, {created, skipped} ->
+          url = Map.get(s, "url") || Map.get(s, :url)
+          tag_names = Map.get(s, "tags") || Map.get(s, :tags) || []
+          tag_records = Enum.map(tag_names, &Map.get(tag_by_name, &1)) |> Enum.reject(&is_nil/1)
+
+          case get_user_bookmark_by_url(url, user_id) do
+            nil ->
+              attrs =
+                s
+                |> stringify_keys()
+                |> Map.put("created_by_id", user_id)
+                |> Map.put("tags", tag_records)
+                |> decode_favicon()
+                |> Map.drop(["favicon_data_b64", "inserted_at"])
+
+              %Site{}
+              |> Site.changeset(attrs)
+              |> Repo.insert!()
+
+              {created + 1, skipped}
+
+            %Site{} = existing ->
+              existing = Repo.preload(existing, :tags)
+              merged = Enum.uniq_by(existing.tags ++ tag_records, & &1.id)
+
+              existing
+              |> Site.changeset(%{"tags" => merged})
+              |> Repo.update!()
+
+              {created, skipped + 1}
+          end
+        end)
+
+      %{
+        tags_created: tags_created,
+        sites_created: sites_created,
+        sites_skipped: sites_skipped
+      }
+    end)
+  end
+
+  defp stringify_keys(map) do
+    Enum.into(map, %{}, fn
+      {k, v} when is_atom(k) -> {Atom.to_string(k), v}
+      kv -> kv
+    end)
+  end
+
+  defp decode_favicon(%{"favicon_data_b64" => b64} = attrs) when is_binary(b64) do
+    case Base.decode64(b64) do
+      {:ok, bin} -> Map.put(attrs, "favicon_data", bin)
+      :error -> attrs
+    end
+  end
+
+  defp decode_favicon(attrs), do: attrs
 
   def import_from_file(path) do
     file = File.read!(path)

@@ -49,19 +49,19 @@ export async function findBookmark(url) {
   }
 }
 
-export async function createBookmark({ title, url, tags }) {
+export async function createBookmark({ title, url, tags, notes }) {
   return request("/api/create_bookmark", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, url, tags }),
+    body: JSON.stringify({ title, url, tags, notes }),
   });
 }
 
-export async function updateBookmark(id, { title, url, tags }) {
+export async function updateBookmark(id, { title, url, tags, notes }) {
   return request(`/api/update_bookmark/${id}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, url, tags }),
+    body: JSON.stringify({ title, url, tags, notes }),
   });
 }
 

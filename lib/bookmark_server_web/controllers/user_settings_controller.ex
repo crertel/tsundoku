@@ -50,6 +50,52 @@ defmodule BookmarkServerWeb.UserSettingsController do
     end
   end
 
+  def update(conn, %{"action" => "empty_account"} = params) do
+    %{"current_password" => password, "confirm_email" => confirm_email} = params
+    user = conn.assigns.current_user
+
+    cond do
+      not BookmarkServer.Accounts.User.valid_password?(user, password) ->
+        conn
+        |> put_flash(:error, "Wrong password.")
+        |> redirect(to: Routes.user_settings_path(conn, :edit))
+
+      String.trim(confirm_email || "") != user.email ->
+        conn
+        |> put_flash(:error, "Confirmation email didn't match.")
+        |> redirect(to: Routes.user_settings_path(conn, :edit))
+
+      true ->
+        {:ok, %{sites_deleted: sd, tags_deleted: td}} =
+          BookmarkServer.Bookmarks.empty_user_data(user)
+
+        conn
+        |> put_flash(:info, "Emptied account: #{sd} bookmarks and #{td} tags deleted.")
+        |> redirect(to: Routes.user_settings_path(conn, :edit))
+    end
+  end
+
+  def update(conn, %{"action" => "deactivate_account"} = params) do
+    %{"current_password" => password, "confirm_email" => confirm_email} = params
+    user = conn.assigns.current_user
+
+    cond do
+      not BookmarkServer.Accounts.User.valid_password?(user, password) ->
+        conn
+        |> put_flash(:error, "Wrong password.")
+        |> redirect(to: Routes.user_settings_path(conn, :edit))
+
+      String.trim(confirm_email || "") != user.email ->
+        conn
+        |> put_flash(:error, "Confirmation email didn't match.")
+        |> redirect(to: Routes.user_settings_path(conn, :edit))
+
+      true ->
+        :ok = Accounts.delete_user(user)
+        UserAuth.log_out_user(conn)
+    end
+  end
+
   def confirm_email(conn, %{"token" => token}) do
     case Accounts.update_user_email(conn.assigns.current_user, token) do
       :ok ->
