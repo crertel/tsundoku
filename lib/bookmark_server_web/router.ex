@@ -122,6 +122,10 @@ defmodule BookmarkServerWeb.Router do
 
     live_session :authed,
       on_mount: [{BookmarkServerWeb.UserAuth, :ensure_authenticated}] do
+      live "/searches", SavedSearchLive.Index, :index
+      live "/searches/new", SavedSearchLive.Index, :new
+      live "/searches/:id/edit", SavedSearchLive.Index, :edit
+
       live "/tags", TagLive.Index, :index
       live "/tags/new", TagLive.Index, :new
       live "/tags/:id/edit", TagLive.Index, :edit
@@ -154,5 +158,12 @@ defmodule BookmarkServerWeb.Router do
     pipe_through :external_post
 
     post "/share", ShareController, :receive
+  end
+
+  # Atom feeds — public, identified by per-search UUID token.
+  scope "/", BookmarkServerWeb do
+    pipe_through :api
+
+    get "/feeds/:token", FeedController, :show
   end
 end

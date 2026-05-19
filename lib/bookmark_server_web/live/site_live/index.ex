@@ -423,17 +423,27 @@ defmodule BookmarkServerWeb.SiteLive.Index do
       <div class="mb-6">
         <div class="group relative w-full">
           <form id="site-search-form" phx-change="update_input" phx-submit="commit_search">
-            <input
-              type="text"
-              id="site-search-input"
-              name="query_field[query]"
-              value={@search_input}
-              placeholder={~s(Search title, or tag:name, domain:example.com, url:text)}
-              autocomplete="off"
-              autofocus
-              onkeydown="if (event.key === 'Escape') { this.blur(); } else if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector('#site-search-suggestions button')?.focus(); }"
-              class="block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-            />
+            <div class="flex gap-2">
+              <input
+                type="text"
+                id="site-search-input"
+                name="query_field[query]"
+                value={@search_input}
+                placeholder={~s(Search title, or tag:name, domain:example.com, url:text)}
+                autocomplete="off"
+                autofocus
+                onkeydown="if (event.key === 'Escape') { this.blur(); } else if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector('#site-search-suggestions button')?.focus(); }"
+                class="block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              />
+              <.link
+                :if={@search != ""}
+                navigate={~p"/searches/new?query=#{@search}"}
+                title="Save this query as a named search"
+                class="shrink-0 rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-200"
+              >
+                💾 Save
+              </.link>
+            </div>
           </form>
           <ul
             id="site-search-suggestions"

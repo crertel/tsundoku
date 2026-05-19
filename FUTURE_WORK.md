@@ -17,17 +17,15 @@ git log for what's actually in.
 4. Smart tag suggestions from page content — held
 
 **Surfacing / sharing (medium)**
-5. Saved-searches-as-feeds (tokened, revokable Atom feeds backed by
-   saved searches; cached)
-6. Public read-only shareable collections — held
+5. Public read-only shareable collections — held
 
 **Extension polish**
-7. Mobile Firefox support
-8. AMO unlisted signing for one-click install — eventually
+6. Mobile Firefox support
+7. AMO unlisted signing for one-click install — eventually
 
 **Bigger swings**
-9. Reading-status workflow (unread / read / archived) — tempting
-10. Multi-user sharing primitives (invites, follow, collections) — tempting
+8. Reading-status workflow (unread / read / archived) — tempting
+9. Multi-user sharing primitives (invites, follow, collections) — tempting
 
 ## Quality-of-life polish (small)
 
@@ -52,12 +50,6 @@ git log for what's actually in.
 
 ## Surfacing / sharing (medium)
 
-- **Saved-searches-as-feeds.** A `saved_searches` table with
-  `name`, `query`, and an optional `feed_token` (UUID, revokable).
-  When a search has a token, it's also served as an Atom feed at
-  `/feeds/<token>` (un-authed; the token *is* the auth). Cache the
-  rendered body for ~10 min since RSS clients poll aggressively.
-  This makes saved-searches and per-tag feeds the same feature.
 - **Public read-only collections.** Curated lists with a
   shareable URL, opt-in per-list (default private).
 

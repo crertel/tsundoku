@@ -8,6 +8,7 @@ defmodule BookmarkServer.Bookmarks do
 
   alias BookmarkServer.Bookmarks.Tag
   alias BookmarkServer.Bookmarks.Site
+  alias BookmarkServer.Bookmarks.SavedSearch
 
   @doc """
   Returns every tag in the system across all users. NOT scoped to the
@@ -1275,6 +1276,66 @@ defmodule BookmarkServer.Bookmarks do
   end
 
   defp decode_favicon(attrs), do: attrs
+
+  # ----- Saved searches -----
+
+  @doc "Lists a user's saved searches alphabetically by name."
+  def list_user_saved_searches(user_id) do
+    from(s in SavedSearch, where: s.created_by_id == ^user_id, order_by: s.name)
+    |> Repo.all()
+  end
+
+  def get_saved_search!(id), do: Repo.get!(SavedSearch, id)
+
+  def get_saved_search_by_token(token) when is_binary(token) do
+    Repo.get_by(SavedSearch, feed_token: token)
+  end
+
+  def change_saved_search(%SavedSearch{} = ss, attrs \\ %{}) do
+    SavedSearch.changeset(ss, attrs)
+  end
+
+  def create_saved_search(attrs) do
+    %SavedSearch{}
+    |> SavedSearch.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def update_saved_search(%SavedSearch{} = ss, attrs) do
+    ss
+    |> SavedSearch.changeset(attrs)
+    |> Repo.update()
+  end
+
+  def delete_saved_search(%SavedSearch{} = ss), do: Repo.delete(ss)
+
+  @doc "Generates a fresh UUID feed_token and persists it."
+  def enable_feed(%SavedSearch{} = ss) do
+    token = Ecto.UUID.generate()
+
+    ss
+    |> SavedSearch.feed_token_changeset(token)
+    |> Repo.update()
+  end
+
+  @doc "Revokes the feed_token (nulls it out)."
+  def disable_feed(%SavedSearch{} = ss) do
+    ss
+    |> SavedSearch.feed_token_changeset(nil)
+    |> Repo.update()
+  end
+
+  @doc """
+  Reuses the site search pipeline to fetch the most recent N sites
+  matching a saved search. Used by the Atom renderer.
+  """
+  def search_results_for_feed(%SavedSearch{} = ss, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 50)
+
+    parsed = parse_site_query(ss.query)
+    %{entries: entries} = search_sites(ss.created_by_id, parsed, page: 1, page_size: limit)
+    entries
+  end
 
   def import_from_file(path) do
     file = File.read!(path)
