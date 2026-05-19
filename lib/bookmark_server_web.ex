@@ -18,7 +18,7 @@ defmodule BookmarkServerWeb do
   """
 
   def static_paths,
-    do: ~w(assets css fonts images js extension favicon.ico robots.txt)
+    do: ~w(assets css fonts images js extension favicon.ico manifest.webmanifest robots.txt)
 
   def controller do
     quote do

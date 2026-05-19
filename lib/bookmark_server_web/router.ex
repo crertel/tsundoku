@@ -14,6 +14,18 @@ defmodule BookmarkServerWeb.Router do
     plug :fetch_current_user
   end
 
+  # Same as :browser but without CSRF — used only for endpoints invoked
+  # from the OS share sheet (PWA share_target), which cannot carry a
+  # CSRF token. The handler must do its own authentication.
+  pipeline :external_post do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, {BookmarkServerWeb.Layouts, :root}
+    plug :put_secure_browser_headers
+    plug :fetch_current_user
+  end
+
   pipeline :api do
     plug :accepts, ["json"]
   end
@@ -136,5 +148,11 @@ defmodule BookmarkServerWeb.Router do
     get "/yolo", YoloController, :show
 
     oban_dashboard "/admin/oban"
+  end
+
+  scope "/", BookmarkServerWeb do
+    pipe_through :external_post
+
+    post "/share", ShareController, :receive
   end
 end

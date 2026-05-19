@@ -27,8 +27,7 @@ git log for what's actually in.
 
 **Bigger swings**
 9. Reading-status workflow (unread / read / archived) — tempting
-10. Mobile share target (PWA route)
-11. Multi-user sharing primitives (invites, follow, collections) — tempting
+10. Multi-user sharing primitives (invites, follow, collections) — tempting
 
 ## Quality-of-life polish (small)
 
@@ -75,9 +74,6 @@ git log for what's actually in.
 
 - **Reading-status workflow** (unread → read → archived) with
   per-status views. Turns the server into a Pocket replacement.
-- **Mobile share target.** Add a PWA manifest with `share_target`
-  so the site can be "installed" on Android and receive shares
-  natively. No native code; one-time install friction.
 - **Multi-user sharing primitives.** Invites, follow, collections.
   Significant architectural delta — requires a permissions model,
   not just per-user scoping.
