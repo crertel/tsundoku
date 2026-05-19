@@ -28,8 +28,22 @@ defmodule BookmarkServerWeb.SavedSearchLive.Index do
   end
 
   defp apply_action(socket, :new, params) do
-    prefill = %SavedSearch{query: Map.get(params, "query", "")}
-    socket |> assign(:changeset, Bookmarks.change_saved_search(prefill)) |> assign(:editing, :new)
+    case String.trim(Map.get(params, "query", "")) do
+      "" ->
+        socket
+        |> put_flash(
+          :info,
+          "Build a query in the sites search bar, then click \"Save\" to name it."
+        )
+        |> push_navigate(to: ~p"/sites")
+
+      query ->
+        prefill = %SavedSearch{query: query}
+
+        socket
+        |> assign(:changeset, Bookmarks.change_saved_search(prefill))
+        |> assign(:editing, :new)
+    end
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -115,24 +129,19 @@ defmodule BookmarkServerWeb.SavedSearchLive.Index do
   def render(assigns) do
     ~H"""
     <section class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <div class="mb-6 flex items-baseline justify-between">
-        <div>
-          <h1 class="text-2xl font-semibold text-slate-950">Saved searches</h1>
-          <p class="mt-1 text-sm text-slate-700">
-            Name a query, optionally publish it as an Atom feed.
-          </p>
-        </div>
-        <.link
-          patch={~p"/searches/new"}
-          class="rounded-md bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700"
-        >
-          New
-        </.link>
+      <div class="mb-6">
+        <h1 class="text-2xl font-semibold text-slate-950">Saved searches</h1>
+        <p class="mt-1 text-sm text-slate-700">
+          Name a query, optionally publish it as an Atom feed. To
+          create one, build a query on the
+          <.link navigate={~p"/sites"} class="text-sky-700 hover:text-sky-900">sites page</.link>
+          and click <strong>Save</strong>.
+        </p>
       </div>
 
       <div :if={@editing} class="mb-8 rounded-lg border border-slate-400 bg-slate-100 p-6 shadow-sm">
         <h2 class="text-lg font-semibold text-slate-950">
-          <%= if @editing == :new, do: "New saved search", else: "Edit saved search" %>
+          <%= if @editing == :new, do: "Name this search", else: "Edit saved search" %>
         </h2>
 
         <.form :let={f} for={@changeset} phx-submit="save" class="mt-4 space-y-4">
@@ -140,20 +149,20 @@ defmodule BookmarkServerWeb.SavedSearchLive.Index do
             <%= label f, :name, class: "block text-sm font-medium text-slate-700" %>
             <%= text_input f, :name,
               required: true,
+              autofocus: true,
               class:
                 "mt-1 block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" %>
             <%= error_tag f, :name %>
           </div>
 
           <div>
-            <%= label f, :query, class: "block text-sm font-medium text-slate-700" %>
-            <%= text_input f, :query,
-              placeholder: "e.g. tag:reading -tag:work elixir",
-              class:
-                "mt-1 block w-full rounded-md border border-slate-400 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-950 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" %>
-            <%= error_tag f, :query %>
+            <span class="block text-sm font-medium text-slate-700">Query</span>
+            <p class="mt-1 break-all rounded-md border border-slate-300 bg-slate-200 px-3 py-2 font-mono text-sm text-slate-800">
+              <%= Ecto.Changeset.get_field(@changeset, :query) || "" %>
+            </p>
+            <%= hidden_input f, :query %>
             <p class="mt-1 text-xs text-slate-500">
-              Same syntax as the sites search bar.
+              To change the query, rerun the search on the sites page and save again.
             </p>
           </div>
 
