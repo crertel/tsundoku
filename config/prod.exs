@@ -50,6 +50,5 @@ config :logger, level: :info
 #
 # Check `Plug.SSL` for all available options in `force_ssl`.
 
-# Finally import the config/prod.secret.exs which loads secrets
-# and configuration from environment variables.
-import_config "prod.secret.exs"
+# Runtime configuration (env vars, secrets) lives in config/runtime.exs
+# so a built release reads them at boot rather than at compile time.

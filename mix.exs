@@ -11,7 +11,18 @@ defmodule BookmarkServer.MixProject do
       listeners: [Phoenix.CodeReloader],
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      releases: releases()
+    ]
+  end
+
+  defp releases do
+    [
+      bookmark_server: [
+        include_executables_for: [:unix],
+        applications: [runtime_tools: :permanent],
+        steps: [:assemble, :tar]
+      ]
     ]
   end
 
