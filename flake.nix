@@ -1,5 +1,5 @@
 {
-  description = "Bookmark Server Phoenix development environment";
+  description = "Tsundoku Phoenix development environment";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 

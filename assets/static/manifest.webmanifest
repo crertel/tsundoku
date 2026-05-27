@@ -1,6 +1,6 @@
 {
-  "name": "Bookmark Server",
-  "short_name": "Bookmarks",
+  "name": "Tsundoku",
+  "short_name": "Tsundoku",
   "description": "Personal bookmarks server",
   "start_url": "/sites",
   "scope": "/",

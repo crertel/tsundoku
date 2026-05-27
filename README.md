@@ -1,4 +1,4 @@
-# Bookmark Server
+# Tsundoku
 
 A personal bookmarks server. Phoenix + LiveView + Postgres, with a
 browser extension, a JSON backup format, an installable PWA on Android,
@@ -78,7 +78,7 @@ token generator.
 
 1. Open the site in Chrome or Firefox for Android.
 2. Use "Add to home screen" / "Install app".
-3. Share any URL → BookmarkServer appears in the share sheet.
+3. Share any URL → Tsundoku appears in the share sheet.
 
 A shared link is POSTed to `/share`, saved, and you land on the edit
 page so you can add tags.

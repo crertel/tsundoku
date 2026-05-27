@@ -16,7 +16,7 @@ const CACHE_TTL_MS = 60_000;
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: MENU_ID,
-    title: "Save to Bookmark Server",
+    title: "Save to Tsundoku",
     contexts: ["page", "link"],
   });
 });

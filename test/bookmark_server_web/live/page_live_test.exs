@@ -5,7 +5,7 @@ defmodule BookmarkServerWeb.PageLiveTest do
 
   test "disconnected and connected render", %{conn: conn} do
     {:ok, page_live, disconnected_html} = live(conn, "/")
-    assert disconnected_html =~ "Bookmark Server"
-    assert render(page_live) =~ "Bookmark Server"
+    assert disconnected_html =~ "Tsundoku"
+    assert render(page_live) =~ "Tsundoku"
   end
 end

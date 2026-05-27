@@ -35,7 +35,7 @@ defmodule BookmarkServerWeb.FeedController do
       <id>urn:uuid:#{ss.feed_token}</id>
       <updated>#{iso(updated_at)}</updated>
       <link rel="self" href="#{escape(self_url)}" />
-      <generator>Bookmark Server</generator>
+      <generator>Tsundoku</generator>
     #{Enum.map_join(entries, "\n", &render_entry/1)}
     </feed>
     """

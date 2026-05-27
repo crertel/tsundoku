@@ -23,7 +23,7 @@ let
 in
 {
   options.services.bookmark-server = {
-    enable = lib.mkEnableOption "Bookmark Server, a personal bookmarks app";
+    enable = lib.mkEnableOption "Tsundoku, a personal bookmarks app";
 
     package = lib.mkOption {
       type = lib.types.nullOr lib.types.package;
@@ -166,7 +166,7 @@ in
     users.users.${cfg.user} = {
       group = cfg.group;
       isSystemUser = true;
-      description = "Bookmark Server service user";
+      description = "Tsundoku service user";
     };
 
     users.groups.${cfg.group} = { };
@@ -181,7 +181,7 @@ in
     };
 
     systemd.services.bookmark-server = {
-      description = "Bookmark Server";
+      description = "Tsundoku";
       wantedBy = [ "multi-user.target" ];
       after =
         [ "network.target" ]

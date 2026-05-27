@@ -10,7 +10,7 @@ defmodule BookmarkServerWeb.PageLive do
         {:ok, redirect(socket, to: ~p"/sites")}
 
       _ ->
-        {:ok, assign(socket, page_title: "Bookmark Server")}
+        {:ok, assign(socket, page_title: "Tsundoku")}
     end
   end
 
@@ -19,7 +19,7 @@ defmodule BookmarkServerWeb.PageLive do
     ~H"""
     <section class="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
       <div class="rounded-lg border border-slate-400 bg-slate-100 p-8 shadow-sm">
-        <h1 class="text-3xl font-semibold text-slate-950">Bookmark Server</h1>
+        <h1 class="text-3xl font-semibold text-slate-950">Tsundoku</h1>
         <p class="mt-3 text-sm text-slate-700">
           A personal bookmarks server. Log in or register to begin.
         </p>
