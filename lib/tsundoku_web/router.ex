@@ -151,7 +151,7 @@ defmodule TsundokuWeb.Router do
     get "/backup/export", BackupController, :export
     get "/yolo", YoloController, :show
 
-    oban_dashboard "/admin/oban"
+    oban_dashboard("/admin/oban")
   end
 
   scope "/", TsundokuWeb do

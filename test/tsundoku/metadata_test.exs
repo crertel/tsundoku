@@ -114,13 +114,23 @@ defmodule Tsundoku.MetadataTest do
   # on monkey-patching Req.
   defp html?(headers) do
     case headers do
-      h when is_map(h) -> Map.values(h) |> List.flatten() |> Enum.any?(&String.contains?(String.downcase(&1), "text/html"))
+      h when is_map(h) ->
+        Map.values(h)
+        |> List.flatten()
+        |> Enum.any?(&String.contains?(String.downcase(&1), "text/html"))
+
       h when is_list(h) ->
         Enum.any?(h, fn
-          {k, v} -> String.downcase(to_string(k)) == "content-type" and String.contains?(String.downcase(to_string(v)), "text/html")
-          _ -> false
+          {k, v} ->
+            String.downcase(to_string(k)) == "content-type" and
+              String.contains?(String.downcase(to_string(v)), "text/html")
+
+          _ ->
+            false
         end)
-      _ -> false
+
+      _ ->
+        false
     end
   end
 end

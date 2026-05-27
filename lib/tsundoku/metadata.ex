@@ -170,8 +170,7 @@ defmodule Tsundoku.Metadata do
 
     %{
       title: og_meta(doc, "og:title") || tag_text(doc, "title"),
-      description:
-        og_meta(doc, "og:description") || named_meta(doc, "description"),
+      description: og_meta(doc, "og:description") || named_meta(doc, "description"),
       favicon_url: favicon_url(doc, page_url),
       og_image_url: og_meta(doc, "og:image") |> absolutize(page_url)
     }

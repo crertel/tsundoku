@@ -31,8 +31,7 @@ defmodule Tsundoku.Accounts.UserToken do
   def build_session_token(user) do
     token = :crypto.strong_rand_bytes(@rand_size)
 
-    {token,
-     %Tsundoku.Accounts.UserToken{token: token, context: "session", user_id: user.id}}
+    {token, %Tsundoku.Accounts.UserToken{token: token, context: "session", user_id: user.id}}
   end
 
   @doc """

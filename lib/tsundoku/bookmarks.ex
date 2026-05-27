@@ -782,7 +782,9 @@ defmodule Tsundoku.Bookmarks do
       tokens
       |> Enum.with_index()
       |> Enum.reduce({nil, false}, fn
-        {_token, _idx}, {found, true} -> {found, true}
+        {_token, _idx}, {found, true} ->
+          {found, true}
+
         {token, idx}, {nil, false} ->
           if title_field_token_matches?(token, target),
             do: {idx, true},

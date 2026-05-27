@@ -88,10 +88,14 @@ defmodule Tsundoku.BookmarksTest do
 
       assert Bookmarks.get_tag(src.id) == nil
 
-      assert site_a |> Tsundoku.Repo.preload(:tags, force: true) |> Map.get(:tags)
+      assert site_a
+             |> Tsundoku.Repo.preload(:tags, force: true)
+             |> Map.get(:tags)
              |> Enum.map(& &1.id) == [dest.id]
 
-      assert site_b |> Tsundoku.Repo.preload(:tags, force: true) |> Map.get(:tags)
+      assert site_b
+             |> Tsundoku.Repo.preload(:tags, force: true)
+             |> Map.get(:tags)
              |> Enum.map(& &1.id) == [dest.id]
     end
 
