@@ -45,7 +45,7 @@ alias Tsundoku.RuntimeConfigHelpers, as: H
 
 log_level_default =
   case config_env() do
-    :prod -> "info"
+    :prod -> "warning"
     :test -> "warning"
     :dev -> "debug"
   end

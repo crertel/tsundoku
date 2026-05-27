@@ -150,7 +150,7 @@ in
 
     logLevel = lib.mkOption {
       type = lib.types.enum [ "emergency" "alert" "critical" "error" "warning" "notice" "info" "debug" ];
-      default = "info";
+      default = "warning";
       description = "Elixir Logger level. Maps to LOG_LEVEL.";
     };
 
