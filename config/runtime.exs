@@ -40,6 +40,34 @@ end
 
 alias Tsundoku.RuntimeConfigHelpers, as: H
 
+# --- Cross-env runtime knobs --------------------------------------------
+# Apply in dev, test, and prod (anything you can twist without rebuilding).
+
+log_level_default =
+  case config_env() do
+    :prod -> "info"
+    :test -> "warning"
+    :dev -> "debug"
+  end
+
+log_level =
+  (System.get_env("LOG_LEVEL") || log_level_default)
+  |> String.downcase()
+  |> String.to_existing_atom()
+
+config :logger, level: log_level
+
+if val = System.get_env("OBAN_METADATA_CONCURRENCY") do
+  config :tsundoku, Oban, queues: [metadata: String.to_integer(val)]
+end
+
+if val = System.get_env("OBAN_PRUNE_MAX_AGE_DAYS") do
+  config :tsundoku, Oban,
+    plugins: [{Oban.Plugins.Pruner, max_age: String.to_integer(val) * 24 * 60 * 60}]
+end
+
+# --- Prod-only runtime config ------------------------------------------
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

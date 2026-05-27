@@ -19,10 +19,12 @@ config :tsundoku, Tsundoku.Repo,
 # you can enable the server option below.
 config :tsundoku, TsundokuWeb.Endpoint,
   http: [port: 4002],
-  server: false
+  server: false,
+  secret_key_base: "test_secret_key_base_at_least_64_bytes_long_for_phoenix_to_accept_it___",
+  live_view: [signing_salt: "test-salt"]
 
-# Print only warnings and errors during test
-config :logger, level: :warning
+# Logger level is set at runtime by config/runtime.exs (LOG_LEVEL env var,
+# defaults to :warning in test).
 
 # Oban jobs are enqueued but not executed during tests. Tests that want
 # to drive a job to completion call `Oban.drain_queue/1` explicitly.

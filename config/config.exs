@@ -23,16 +23,16 @@ config :tsundoku, Oban,
   plugins: [{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7}],
   repo: Tsundoku.Repo
 
-# Configures the endpoint
+# Configures the endpoint. secret_key_base and live_view.signing_salt are
+# per-env: dev/test set them in their own config files; prod reads them from
+# runtime.exs.
 config :tsundoku, TsundokuWeb.Endpoint,
   url: [host: "localhost"],
-  secret_key_base: "ztbf5nOym/gqsFjPl8HwVSiGwdQa4MKpjpsgI8u4EdyZaKBsg/WqDRIeFk9J40fm",
   render_errors: [
     formats: [html: TsundokuWeb.ErrorHTML, json: TsundokuWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: Tsundoku.PubSub,
-  live_view: [signing_salt: "MtF0gJXX"]
+  pubsub_server: Tsundoku.PubSub
 
 # Configures Elixir's Logger
 config :logger, :console,

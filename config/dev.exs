@@ -21,6 +21,8 @@ config :tsundoku, TsundokuWeb.Endpoint,
   debug_errors: true,
   code_reloader: true,
   check_origin: false,
+  secret_key_base: "ztbf5nOym/gqsFjPl8HwVSiGwdQa4MKpjpsgI8u4EdyZaKBsg/WqDRIeFk9J40fm",
+  live_view: [signing_salt: "MtF0gJXX"],
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}

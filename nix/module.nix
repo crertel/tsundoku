@@ -9,6 +9,13 @@ let
     then cfg.package
     else self.packages.${pkgs.stdenv.hostPlatform.system}.default;
 
+  # Auto-provision the local Postgres unless the user has supplied creds
+  # for an external DB. Explicit true/false still wins.
+  effectiveProvision =
+    if cfg.database.provision != null
+    then cfg.database.provision
+    else cfg.databaseUrl == null && cfg.database.passwordFile == null;
+
   # Build a DATABASE_URL from the structured options if the user hasn't
   # passed one verbatim. Password (if any) is read from a file at start
   # by the systemd ExecStartPre.
@@ -20,6 +27,8 @@ let
       name = cfg.database.name;
     in
     "ecto://${user}@${host}:${port}/${name}";
+
+  beamFlagsStr = lib.concatStringsSep " " cfg.beamFlags;
 in
 {
   options.services.tsundoku = {
@@ -103,6 +112,12 @@ in
       '';
     };
 
+    logLevel = lib.mkOption {
+      type = lib.types.enum [ "emergency" "alert" "critical" "error" "warning" "notice" "info" "debug" ];
+      default = "info";
+      description = "Elixir Logger level. Maps to LOG_LEVEL.";
+    };
+
     databaseUrl = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
@@ -114,13 +129,13 @@ in
 
     database = {
       provision = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
         description = ''
-          When true, enables a local PostgreSQL service, creates the
-          database, and gives the service peer auth. When false, you
-          must point database.host/port/user at a reachable Postgres
-          and supply database.passwordFile (or set databaseUrl).
+          Auto by default (null): provisions a local PostgreSQL service
+          iff neither databaseUrl nor database.passwordFile is set. Set
+          to true to force provisioning, or false to point at an
+          external DB you manage yourself.
         '';
       };
 
@@ -149,10 +164,88 @@ in
         type = lib.types.nullOr lib.types.path;
         default = null;
         description = ''
-          Path to a file containing the DB password. Ignored when
-          database.provision is true (peer auth is used).
+          Path to a file containing the DB password. Ignored when the
+          local Postgres is being provisioned (peer auth is used).
         '';
       };
+
+      poolSize = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 10;
+        description = "Ecto connection pool size. Maps to POOL_SIZE.";
+      };
+
+      ipv6 = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Open the DB socket over IPv6. Maps to ECTO_IPV6.";
+      };
+    };
+
+    oban = {
+      metadataConcurrency = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 5;
+        description = ''
+          Number of metadata-fetch workers run in parallel. Per-domain
+          serialization is enforced inside the worker so the crawler
+          still doesn't hit the same host concurrently. Maps to
+          OBAN_METADATA_CONCURRENCY.
+        '';
+      };
+
+      pruneMaxAgeDays = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 7;
+        description = ''
+          Days to keep completed/discarded Oban jobs before the Pruner
+          deletes them. Maps to OBAN_PRUNE_MAX_AGE_DAYS.
+        '';
+      };
+    };
+
+    beamFlags = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "+P" "1048576" "+K" "true" ];
+      description = ''
+        Extra flags passed to the BEAM VM via ELIXIR_ERL_OPTIONS.
+        See `erl -help` for available flags (e.g. +P max processes,
+        +Q max ports, +S schedulers, +K kernel poll, +sbwt scheduler
+        busy-wait, +A async threads).
+      '';
+    };
+
+    cookieFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      description = ''
+        Path to a file containing the Erlang distribution cookie. Only
+        relevant if you actually use distribution (see `distribution`).
+        Anyone with this cookie + network access to an EPMD-exposed node
+        gets full RCE, so keep it secret. If null, the cookie baked into
+        the release at build time is used.
+      '';
+    };
+
+    nodeName = lib.mkOption {
+      type = lib.types.str;
+      default = "tsundoku";
+      description = ''
+        Erlang node name (or short/long name depending on
+        `distribution`). Maps to RELEASE_NODE.
+      '';
+    };
+
+    distribution = lib.mkOption {
+      type = lib.types.enum [ "none" "sname" "name" ];
+      default = "sname";
+      description = ''
+        Erlang distribution mode. `none` disables distribution entirely
+        (no EPMD, no `-name`/`-sname`); `sname` uses a short name on the
+        local host; `name` uses a fully-qualified long name. Maps to
+        RELEASE_DISTRIBUTION.
+      '';
     };
 
     extraEnvironment = lib.mkOption {
@@ -171,7 +264,7 @@ in
 
     users.groups.${cfg.group} = { };
 
-    services.postgresql = lib.mkIf cfg.database.provision {
+    services.postgresql = lib.mkIf effectiveProvision {
       enable = lib.mkDefault true;
       ensureDatabases = [ cfg.database.name ];
       ensureUsers = [{
@@ -185,8 +278,8 @@ in
       wantedBy = [ "multi-user.target" ];
       after =
         [ "network.target" ]
-        ++ lib.optional cfg.database.provision "postgresql.service";
-      requires = lib.optional cfg.database.provision "postgresql.service";
+        ++ lib.optional effectiveProvision "postgresql.service";
+      requires = lib.optional effectiveProvision "postgresql.service";
 
       environment = {
         PORT = toString cfg.port;
@@ -200,8 +293,18 @@ in
           if builtins.isBool cfg.checkOrigin
           then (if cfg.checkOrigin then "*" else "")
           else lib.concatStringsSep "," cfg.checkOrigin;
+        LOG_LEVEL = cfg.logLevel;
+        POOL_SIZE = toString cfg.database.poolSize;
+        OBAN_METADATA_CONCURRENCY = toString cfg.oban.metadataConcurrency;
+        OBAN_PRUNE_MAX_AGE_DAYS = toString cfg.oban.pruneMaxAgeDays;
+        RELEASE_NODE = cfg.nodeName;
+        RELEASE_DISTRIBUTION = cfg.distribution;
       } // lib.optionalAttrs (cfg.urlPort != null) {
         PHX_URL_PORT = toString cfg.urlPort;
+      } // lib.optionalAttrs cfg.database.ipv6 {
+        ECTO_IPV6 = "true";
+      } // lib.optionalAttrs (beamFlagsStr != "") {
+        ELIXIR_ERL_OPTIONS = beamFlagsStr;
       } // cfg.extraEnvironment;
 
       serviceConfig = {
@@ -211,17 +314,29 @@ in
         StateDirectory = "tsundoku";
         WorkingDirectory = "/var/lib/tsundoku";
 
-        LoadCredential = [
-          "secret_key_base:${cfg.secretKeyBaseFile}"
-        ] ++ lib.optional
-          (!cfg.database.provision && cfg.database.passwordFile != null)
-          "db_password:${cfg.database.passwordFile}";
+        LoadCredential =
+          [ "secret_key_base:${cfg.secretKeyBaseFile}" ]
+          ++ lib.optional (cfg.cookieFile != null) "cookie:${cfg.cookieFile}"
+          ++ lib.optional
+            (!effectiveProvision && cfg.database.passwordFile != null)
+            "db_password:${cfg.database.passwordFile}";
 
         # Run database migrations on every start, then start the release.
+        # If a cookie file is provided, source it into RELEASE_COOKIE before exec.
         ExecStartPre =
           "${package}/bin/${package.pname or "tsundoku"} eval 'Tsundoku.Release.migrate()'";
         ExecStart =
-          "${package}/bin/${package.pname or "tsundoku"} start";
+          let
+            bin = "${package}/bin/${package.pname or "tsundoku"}";
+          in
+          if cfg.cookieFile != null
+          then
+            # Read the cookie file into RELEASE_COOKIE just before the release boots.
+            pkgs.writeShellScript "tsundoku-start" ''
+              export RELEASE_COOKIE="$(cat "$CREDENTIALS_DIRECTORY/cookie")"
+              exec ${bin} start
+            ''
+          else "${bin} start";
 
         Restart = "on-failure";
         RestartSec = "5s";
@@ -237,16 +352,5 @@ in
         NoNewPrivileges = true;
       };
     };
-
-    assertions = [
-      {
-        assertion =
-          cfg.database.provision
-          || cfg.databaseUrl != null
-          || cfg.database.passwordFile != null;
-        message =
-          "services.tsundoku: when database.provision is false, set databaseUrl or database.passwordFile.";
-      }
-    ];
   };
 }
