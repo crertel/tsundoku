@@ -69,8 +69,8 @@ The extension lives in `extension/` and is bundled by a Mix task:
 mix extension.build
 ```
 
-That writes `priv/static/extension/bookmark-server.zip` (Chrome) and
-`bookmark-server.xpi` (Firefox), both served at `/extension` once
+That writes `priv/static/extension/tsundoku.zip` (Chrome) and
+`tsundoku.xpi` (Firefox), both served at `/extension` once
 logged in. The page has install + setup instructions and a one-click
 token generator.
 
@@ -106,9 +106,9 @@ tag sets get unioned with the dump.
 
 ## Layout
 
-- `lib/bookmark_server/` — contexts (`Bookmarks`, `Accounts`,
+- `lib/tsundoku/` — contexts (`Bookmarks`, `Accounts`,
   `Metadata`), schemas, Oban workers.
-- `lib/bookmark_server_web/` — Phoenix endpoint, router, controllers,
+- `lib/tsundoku_web/` — Phoenix endpoint, router, controllers,
   LiveViews, layouts.
 - `extension/` — MV3 browser extension source.
 - `priv/repo/migrations/` — schema migrations.

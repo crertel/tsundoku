@@ -4,7 +4,7 @@ import Config
 # env-var-driven config belongs. Anything that needs to be different
 # between machines (DB URL, secret, port, host) goes here.
 
-defmodule BookmarkServer.RuntimeConfigHelpers do
+defmodule Tsundoku.RuntimeConfigHelpers do
   @moduledoc false
 
   def read_secret(name) do
@@ -38,7 +38,7 @@ defmodule BookmarkServer.RuntimeConfigHelpers do
   end
 end
 
-alias BookmarkServer.RuntimeConfigHelpers, as: H
+alias Tsundoku.RuntimeConfigHelpers, as: H
 
 if config_env() == :prod do
   database_url =
@@ -48,7 +48,7 @@ if config_env() == :prod do
       For example: ecto://USER:PASS@HOST/DATABASE
       """
 
-  config :bookmark_server, BookmarkServer.Repo,
+  config :tsundoku, Tsundoku.Repo,
     url: database_url,
     pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
     socket_options: H.maybe_ipv6(System.get_env("ECTO_IPV6"))
@@ -70,7 +70,7 @@ if config_env() == :prod do
       val -> String.to_integer(val)
     end
 
-  config :bookmark_server, BookmarkServerWeb.Endpoint,
+  config :tsundoku, TsundokuWeb.Endpoint,
     server: true,
     url: [host: host, port: url_port, scheme: scheme],
     http: [

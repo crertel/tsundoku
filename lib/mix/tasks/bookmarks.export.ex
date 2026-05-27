@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Bookmarks.Export do
 
       mix bookmarks.export user@example.com path/to/backup.json
 
-  If the output path is omitted, defaults to `bookmark-server-backup-<date>.json`
+  If the output path is omitted, defaults to `tsundoku-backup-<date>.json`
   in the current directory.
   """
   @shortdoc "Export one user's bookmarks to JSON"
@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Bookmarks.Export do
   def run([email | rest]) do
     Mix.Task.run("app.start")
 
-    user = BookmarkServer.Accounts.get_user_by_email(email)
+    user = Tsundoku.Accounts.get_user_by_email(email)
 
     if is_nil(user) do
       Mix.raise("No user with email #{inspect(email)}")
@@ -23,10 +23,10 @@ defmodule Mix.Tasks.Bookmarks.Export do
     path =
       case rest do
         [p | _] -> p
-        [] -> "bookmark-server-backup-#{Date.utc_today() |> Date.to_iso8601()}.json"
+        [] -> "tsundoku-backup-#{Date.utc_today() |> Date.to_iso8601()}.json"
       end
 
-    body = user |> BookmarkServer.Bookmarks.export_user() |> Jason.encode!()
+    body = user |> Tsundoku.Bookmarks.export_user() |> Jason.encode!()
     File.write!(path, body)
     Mix.shell().info("Wrote #{byte_size(body)} bytes to #{path}")
   end

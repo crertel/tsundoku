@@ -1,4 +1,4 @@
-defmodule BookmarkServer.DataCase do
+defmodule Tsundoku.DataCase do
   @moduledoc """
   This module defines the setup for tests requiring
   access to the application's data layer.
@@ -10,7 +10,7 @@ defmodule BookmarkServer.DataCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use BookmarkServer.DataCase, async: true`, although
+  by setting `use Tsundoku.DataCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -18,20 +18,20 @@ defmodule BookmarkServer.DataCase do
 
   using do
     quote do
-      alias BookmarkServer.Repo
+      alias Tsundoku.Repo
 
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import BookmarkServer.DataCase
+      import Tsundoku.DataCase
     end
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(BookmarkServer.Repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tsundoku.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(BookmarkServer.Repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(Tsundoku.Repo, {:shared, self()})
     end
 
     :ok

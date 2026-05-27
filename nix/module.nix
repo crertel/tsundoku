@@ -2,7 +2,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  cfg = config.services.bookmark-server;
+  cfg = config.services.tsundoku;
 
   package =
     if cfg.package != null
@@ -22,27 +22,27 @@ let
     "ecto://${user}@${host}:${port}/${name}";
 in
 {
-  options.services.bookmark-server = {
+  options.services.tsundoku = {
     enable = lib.mkEnableOption "Tsundoku, a personal bookmarks app";
 
     package = lib.mkOption {
       type = lib.types.nullOr lib.types.package;
       default = null;
       description = ''
-        The bookmark_server release package. Defaults to the flake's
+        The tsundoku release package. Defaults to the flake's
         own packages.default; override to swap in a custom build.
       '';
     };
 
     user = lib.mkOption {
       type = lib.types.str;
-      default = "bookmark-server";
+      default = "tsundoku";
       description = "System user the service runs as.";
     };
 
     group = lib.mkOption {
       type = lib.types.str;
-      default = "bookmark-server";
+      default = "tsundoku";
       description = "System group the service runs as.";
     };
 
@@ -137,12 +137,12 @@ in
 
       name = lib.mkOption {
         type = lib.types.str;
-        default = "bookmark_server";
+        default = "tsundoku";
       };
 
       user = lib.mkOption {
         type = lib.types.str;
-        default = "bookmark-server";
+        default = "tsundoku";
       };
 
       passwordFile = lib.mkOption {
@@ -180,7 +180,7 @@ in
       }];
     };
 
-    systemd.services.bookmark-server = {
+    systemd.services.tsundoku = {
       description = "Tsundoku";
       wantedBy = [ "multi-user.target" ];
       after =
@@ -208,8 +208,8 @@ in
         Type = "exec";
         User = cfg.user;
         Group = cfg.group;
-        StateDirectory = "bookmark-server";
-        WorkingDirectory = "/var/lib/bookmark-server";
+        StateDirectory = "tsundoku";
+        WorkingDirectory = "/var/lib/tsundoku";
 
         LoadCredential = [
           "secret_key_base:${cfg.secretKeyBaseFile}"
@@ -219,9 +219,9 @@ in
 
         # Run database migrations on every start, then start the release.
         ExecStartPre =
-          "${package}/bin/${package.pname or "bookmark_server"} eval 'BookmarkServer.Release.migrate()'";
+          "${package}/bin/${package.pname or "tsundoku"} eval 'Tsundoku.Release.migrate()'";
         ExecStart =
-          "${package}/bin/${package.pname or "bookmark_server"} start";
+          "${package}/bin/${package.pname or "tsundoku"} start";
 
         Restart = "on-failure";
         RestartSec = "5s";
@@ -245,7 +245,7 @@ in
           || cfg.databaseUrl != null
           || cfg.database.passwordFile != null;
         message =
-          "services.bookmark-server: when database.provision is false, set databaseUrl or database.passwordFile.";
+          "services.tsundoku: when database.provision is false, set databaseUrl or database.passwordFile.";
       }
     ];
   };

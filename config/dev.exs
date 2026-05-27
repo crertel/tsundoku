@@ -1,10 +1,10 @@
 import Config
 
 # Configure your database
-config :bookmark_server, BookmarkServer.Repo,
+config :tsundoku, Tsundoku.Repo,
   username: "postgres",
   password: "postgres",
-  database: "bookmark_server_dev",
+  database: "tsundoku_dev",
   hostname: "localhost",
   show_sensitive_data_on_connection_error: true,
   pool_size: 10,
@@ -16,7 +16,7 @@ config :bookmark_server, BookmarkServer.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we use it
 # with webpack to recompile .js and .css sources.
-config :bookmark_server, BookmarkServerWeb.Endpoint,
+config :tsundoku, TsundokuWeb.Endpoint,
   http: [port: 4000],
   debug_errors: true,
   code_reloader: true,
@@ -51,12 +51,12 @@ config :bookmark_server, BookmarkServerWeb.Endpoint,
 # different ports.
 
 # Watch static and templates for browser reloading.
-config :bookmark_server, BookmarkServerWeb.Endpoint,
+config :tsundoku, TsundokuWeb.Endpoint,
   live_reload: [
     patterns: [
       ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"lib/bookmark_server_web/(live|views)/.*(ex)$",
-      ~r"lib/bookmark_server_web/templates/.*(eex)$"
+      ~r"lib/tsundoku_web/(live|views)/.*(ex)$",
+      ~r"lib/tsundoku_web/templates/.*(eex)$"
     ]
   ]
 

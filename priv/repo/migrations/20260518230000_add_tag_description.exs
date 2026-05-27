@@ -1,4 +1,4 @@
-defmodule BookmarkServer.Repo.Migrations.AddTagDescription do
+defmodule Tsundoku.Repo.Migrations.AddTagDescription do
   use Ecto.Migration
 
   def change do

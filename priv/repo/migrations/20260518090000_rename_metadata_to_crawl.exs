@@ -1,4 +1,4 @@
-defmodule BookmarkServer.Repo.Migrations.RenameMetadataToCrawl do
+defmodule Tsundoku.Repo.Migrations.RenameMetadataToCrawl do
   use Ecto.Migration
 
   def up do

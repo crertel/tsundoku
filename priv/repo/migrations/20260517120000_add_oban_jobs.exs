@@ -1,4 +1,4 @@
-defmodule BookmarkServer.Repo.Migrations.AddObanJobs do
+defmodule Tsundoku.Repo.Migrations.AddObanJobs do
   use Ecto.Migration
 
   def up, do: Oban.Migration.up()

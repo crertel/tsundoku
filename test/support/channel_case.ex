@@ -1,4 +1,4 @@
-defmodule BookmarkServerWeb.ChannelCase do
+defmodule TsundokuWeb.ChannelCase do
   @moduledoc """
   This module defines the test case to be used by
   channel tests.
@@ -11,7 +11,7 @@ defmodule BookmarkServerWeb.ChannelCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use BookmarkServerWeb.ChannelCase, async: true`, although
+  by setting `use TsundokuWeb.ChannelCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -21,18 +21,18 @@ defmodule BookmarkServerWeb.ChannelCase do
     quote do
       # Import conveniences for testing with channels
       import Phoenix.ChannelTest
-      import BookmarkServerWeb.ChannelCase
+      import TsundokuWeb.ChannelCase
 
       # The default endpoint for testing
-      @endpoint BookmarkServerWeb.Endpoint
+      @endpoint TsundokuWeb.Endpoint
     end
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(BookmarkServer.Repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tsundoku.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(BookmarkServer.Repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(Tsundoku.Repo, {:shared, self()})
     end
 
     :ok

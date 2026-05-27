@@ -7,13 +7,13 @@
 # General application configuration
 import Config
 
-config :bookmark_server,
-  ecto_repos: [BookmarkServer.Repo],
+config :tsundoku,
+  ecto_repos: [Tsundoku.Repo],
   generators: [binary_id: true]
 
-config :bookmark_server, BookmarkServer.Repo, migration_timestamps: [type: :utc_datetime_usec]
+config :tsundoku, Tsundoku.Repo, migration_timestamps: [type: :utc_datetime_usec]
 
-config :bookmark_server, Oban,
+config :tsundoku, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
   # Queue concurrency: 5 workers can run in parallel, but per-domain
@@ -21,17 +21,17 @@ config :bookmark_server, Oban,
   # never hit the same host concurrently.
   queues: [metadata: 5],
   plugins: [{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7}],
-  repo: BookmarkServer.Repo
+  repo: Tsundoku.Repo
 
 # Configures the endpoint
-config :bookmark_server, BookmarkServerWeb.Endpoint,
+config :tsundoku, TsundokuWeb.Endpoint,
   url: [host: "localhost"],
   secret_key_base: "ztbf5nOym/gqsFjPl8HwVSiGwdQa4MKpjpsgI8u4EdyZaKBsg/WqDRIeFk9J40fm",
   render_errors: [
-    formats: [html: BookmarkServerWeb.ErrorHTML, json: BookmarkServerWeb.ErrorJSON],
+    formats: [html: TsundokuWeb.ErrorHTML, json: TsundokuWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: BookmarkServer.PubSub,
+  pubsub_server: Tsundoku.PubSub,
   live_view: [signing_salt: "MtF0gJXX"]
 
 # Configures Elixir's Logger

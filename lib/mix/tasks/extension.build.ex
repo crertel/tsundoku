@@ -1,7 +1,7 @@
 defmodule Mix.Tasks.Extension.Build do
   @moduledoc """
   Bundles the browser extension under `extension/` into
-  `priv/static/extension/bookmark-server.zip` and `bookmark-server.xpi`
+  `priv/static/extension/tsundoku.zip` and `tsundoku.xpi`
   (identical content, two extensions so the static plug can serve them
   with the right `Content-Type` for each browser).
 
@@ -15,7 +15,7 @@ defmodule Mix.Tasks.Extension.Build do
 
   @source "extension"
   @dest "priv/static/extension"
-  @basename "bookmark-server"
+  @basename "tsundoku"
 
   def run(_args) do
     source = Path.expand(@source)

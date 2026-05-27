@@ -1,4 +1,4 @@
-defmodule BookmarkServer.Repo.Migrations.AddDomainAndSearchIndexes do
+defmodule Tsundoku.Repo.Migrations.AddDomainAndSearchIndexes do
   use Ecto.Migration
 
   def up do

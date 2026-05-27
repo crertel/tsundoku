@@ -1,4 +1,4 @@
-defmodule :"Elixir.BookmarkServer.Repo.Migrations.Add-tag-site-created-by" do
+defmodule :"Elixir.Tsundoku.Repo.Migrations.Add-tag-site-created-by" do
   use Ecto.Migration
 
   def change do

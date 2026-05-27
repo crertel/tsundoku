@@ -1,4 +1,4 @@
-defmodule BookmarkServer.Repo.Migrations.CreateSavedSearches do
+defmodule Tsundoku.Repo.Migrations.CreateSavedSearches do
   use Ecto.Migration
 
   def change do

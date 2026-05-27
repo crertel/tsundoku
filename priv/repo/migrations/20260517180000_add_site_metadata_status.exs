@@ -1,4 +1,4 @@
-defmodule BookmarkServer.Repo.Migrations.AddSiteMetadataStatus do
+defmodule Tsundoku.Repo.Migrations.AddSiteMetadataStatus do
   use Ecto.Migration
 
   def change do

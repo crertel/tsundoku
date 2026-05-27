@@ -1,7 +1,7 @@
-defmodule BookmarkServer.AccountsFixtures do
+defmodule Tsundoku.AccountsFixtures do
   @moduledoc """
   This module defines test helpers for creating
-  entities via the `BookmarkServer.Accounts` context.
+  entities via the `Tsundoku.Accounts` context.
   """
 
   def unique_user_email, do: "user#{System.unique_integer()}@example.com"
@@ -18,7 +18,7 @@ defmodule BookmarkServer.AccountsFixtures do
     {:ok, user} =
       attrs
       |> valid_user_attributes()
-      |> BookmarkServer.Accounts.register_user()
+      |> Tsundoku.Accounts.register_user()
 
     user
   end

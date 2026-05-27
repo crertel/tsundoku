@@ -28,7 +28,7 @@ defmodule Mix.Tasks.Backfill.Metadata do
     Mix.Task.run("app.start")
 
     count =
-      BookmarkServer.Bookmarks.enqueue_metadata_backfill(
+      Tsundoku.Bookmarks.enqueue_metadata_backfill(
         force: Keyword.get(opts, :force, false),
         user_id: opts[:user_id]
       )

@@ -17,11 +17,11 @@
         in
         {
           default = pkgs.callPackage ./nix/package.nix { };
-          bookmark_server = pkgs.callPackage ./nix/package.nix { };
+          tsundoku = pkgs.callPackage ./nix/package.nix { };
         });
 
       nixosModules.default = import ./nix/module.nix { inherit self; };
-      nixosModules.bookmark-server = self.nixosModules.default;
+      nixosModules.tsundoku = self.nixosModules.default;
 
       devShells = forAllSystems (system:
         let

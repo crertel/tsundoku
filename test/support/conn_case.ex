@@ -1,4 +1,4 @@
-defmodule BookmarkServerWeb.ConnCase do
+defmodule TsundokuWeb.ConnCase do
   @moduledoc """
   This module defines the test case to be used by
   tests that require setting up a connection.
@@ -11,7 +11,7 @@ defmodule BookmarkServerWeb.ConnCase do
   we enable the SQL sandbox, so changes done to the database
   are reverted at the end of every test. If you are using
   PostgreSQL, you can even run database tests asynchronously
-  by setting `use BookmarkServerWeb.ConnCase, async: true`, although
+  by setting `use TsundokuWeb.ConnCase, async: true`, although
   this option is not recommended for other databases.
   """
 
@@ -22,20 +22,20 @@ defmodule BookmarkServerWeb.ConnCase do
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import BookmarkServerWeb.ConnCase
+      import TsundokuWeb.ConnCase
 
-      alias BookmarkServerWeb.Router.Helpers, as: Routes
+      alias TsundokuWeb.Router.Helpers, as: Routes
 
       # The default endpoint for testing
-      @endpoint BookmarkServerWeb.Endpoint
+      @endpoint TsundokuWeb.Endpoint
     end
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(BookmarkServer.Repo)
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Tsundoku.Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(BookmarkServer.Repo, {:shared, self()})
+      Ecto.Adapters.SQL.Sandbox.mode(Tsundoku.Repo, {:shared, self()})
     end
 
     {:ok, conn: Phoenix.ConnTest.build_conn()}
@@ -50,7 +50,7 @@ defmodule BookmarkServerWeb.ConnCase do
   test context.
   """
   def register_and_log_in_user(%{conn: conn}) do
-    user = BookmarkServer.AccountsFixtures.user_fixture()
+    user = Tsundoku.AccountsFixtures.user_fixture()
     %{conn: log_in_user(conn, user), user: user}
   end
 
@@ -60,7 +60,7 @@ defmodule BookmarkServerWeb.ConnCase do
   It returns an updated `conn`.
   """
   def log_in_user(conn, user) do
-    token = BookmarkServer.Accounts.generate_user_session_token(user)
+    token = Tsundoku.Accounts.generate_user_session_token(user)
 
     conn
     |> Phoenix.ConnTest.init_test_session(%{})

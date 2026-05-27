@@ -5,14 +5,14 @@
 # Inside the script, you can read and write to any of your
 # repositories directly:
 #
-#     BookmarkServer.Repo.insert!(%BookmarkServer.SomeSchema{})
+#     Tsundoku.Repo.insert!(%Tsundoku.SomeSchema{})
 #
 # We recommend using the bang functions (`insert!`, `update!`
 # and so on) as they will fail if something goes wrong.
 
-alias BookmarkServer.Accounts
-alias BookmarkServer.Accounts.User
-alias BookmarkServer.Repo
+alias Tsundoku.Accounts
+alias Tsundoku.Accounts.User
+alias Tsundoku.Repo
 
 admin_email = "admin@localhost"
 admin_password = "adminpassword"

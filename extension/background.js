@@ -2,7 +2,7 @@
 // click, and keeps a tab-scoped "already saved" badge on the toolbar
 // icon in sync with the active tab's URL.
 
-const MENU_ID = "bookmark-server-save";
+const MENU_ID = "tsundoku-save";
 const BADGE_TEXT = "✓";
 const BADGE_COLOR = "#22c55e";
 

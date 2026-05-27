@@ -1,4 +1,4 @@
-defmodule BookmarkServer.Repo.Migrations.AddFavicons do
+defmodule Tsundoku.Repo.Migrations.AddFavicons do
   use Ecto.Migration
 
   def change do

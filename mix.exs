@@ -1,9 +1,9 @@
-defmodule BookmarkServer.MixProject do
+defmodule Tsundoku.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :bookmark_server,
+      app: :tsundoku,
       version: "0.1.0",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -18,7 +18,7 @@ defmodule BookmarkServer.MixProject do
 
   defp releases do
     [
-      bookmark_server: [
+      tsundoku: [
         include_executables_for: [:unix],
         applications: [runtime_tools: :permanent],
         steps: [:assemble, :tar]
@@ -31,7 +31,7 @@ defmodule BookmarkServer.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {BookmarkServer.Application, []},
+      mod: {Tsundoku.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end

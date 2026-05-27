@@ -11,7 +11,7 @@ defmodule Mix.Tasks.Bookmarks.Restore do
   def run([email, path]) do
     Mix.Task.run("app.start")
 
-    user = BookmarkServer.Accounts.get_user_by_email(email)
+    user = Tsundoku.Accounts.get_user_by_email(email)
 
     if is_nil(user) do
       Mix.raise("No user with email #{inspect(email)}")
@@ -19,7 +19,7 @@ defmodule Mix.Tasks.Bookmarks.Restore do
 
     dump = path |> File.read!() |> Jason.decode!()
 
-    case BookmarkServer.Bookmarks.restore_user(user, dump) do
+    case Tsundoku.Bookmarks.restore_user(user, dump) do
       {:ok, summary} ->
         Mix.shell().info(
           "Restored: #{summary.tags_created} new tags, " <>

@@ -7,7 +7,7 @@
 }:
 
 let
-  pname = "bookmark_server";
+  pname = "tsundoku";
   version = "0.1.0";
 
   src = ../.;
@@ -44,7 +44,7 @@ beamPackages.mixRelease {
 
   meta = with lib; {
     description = "Personal bookmarks server with LiveView, an extension, and Atom feeds";
-    homepage = "https://github.com/crertel/bookmark_server";
+    homepage = "https://github.com/crertel/tsundoku";
     # License intentionally omitted — the project hasn't declared one.
     # Add `license = licenses.X;` here when that changes.
     platforms = platforms.linux;
