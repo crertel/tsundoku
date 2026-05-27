@@ -16,17 +16,46 @@ let
     then cfg.database.provision
     else cfg.databaseUrl == null && cfg.database.passwordFile == null;
 
-  # Build a DATABASE_URL from the structured options if the user hasn't
-  # passed one verbatim. Password (if any) is read from a file at start
-  # by the systemd ExecStartPre.
-  defaultDbUrl =
-    let
-      host = cfg.database.host;
-      port = toString cfg.database.port;
-      user = cfg.database.user;
-      name = cfg.database.name;
-    in
-    "ecto://${user}@${host}:${port}/${name}";
+  # Three DB flows, picked by what the user set:
+  #   A. effectiveProvision  -> emit DATABASE_URL pointing at local socket
+  #   B. cfg.databaseUrl set -> emit it verbatim
+  #   C. otherwise           -> emit DATABASE_HOSTNAME/PORT/USERNAME/NAME
+  #                             (+ DATABASE_PASSWORD_FILE from LoadCredential)
+  defaultLocalDbUrl =
+    "ecto://${cfg.database.user}@${cfg.database.host}:${toString cfg.database.port}/${cfg.database.name}";
+
+  dbEnvVars =
+    if effectiveProvision then {
+      DATABASE_URL = defaultLocalDbUrl;
+    } else if cfg.databaseUrl != null then {
+      DATABASE_URL = cfg.databaseUrl;
+    } else
+      {
+        DATABASE_HOSTNAME = cfg.database.host;
+        DATABASE_PORT = toString cfg.database.port;
+        DATABASE_USERNAME = cfg.database.user;
+        DATABASE_NAME = cfg.database.name;
+      } // lib.optionalAttrs (cfg.database.passwordFile != null) {
+        DATABASE_PASSWORD_FILE = "%d/db_password";
+      };
+
+  # secret_key_base: explicit path (LoadCredential) or auto-generate at
+  # /var/lib/tsundoku/secret_key_base on first start.
+  autoSkbPath = "/var/lib/tsundoku/secret_key_base";
+
+  effectiveSkbPath =
+    if cfg.secretKeyBaseFile != null
+    then "%d/secret_key_base"
+    else autoSkbPath;
+
+  generateSkbScript = pkgs.writeShellScript "tsundoku-ensure-skb" ''
+    set -euo pipefail
+    target=${autoSkbPath}
+    if [ ! -s "$target" ]; then
+      umask 077
+      ${pkgs.openssl}/bin/openssl rand -base64 48 > "$target"
+    fi
+  '';
 
   beamFlagsStr = lib.concatStringsSep " " cfg.beamFlags;
 in
@@ -105,10 +134,17 @@ in
     };
 
     secretKeyBaseFile = lib.mkOption {
-      type = lib.types.path;
+      type = lib.types.nullOr lib.types.path;
+      default = null;
       description = ''
-        Path to a file containing the Phoenix SECRET_KEY_BASE. Generate
-        with: openssl rand -base64 48. Must be readable by the service.
+        Path to a file containing the Phoenix SECRET_KEY_BASE. If null
+        (default), one is generated at ${autoSkbPath} on first start
+        (via openssl rand -base64 48) and reused thereafter. Set this
+        to point at a managed secret (sops-nix / agenix / etc.) if you
+        want the key under a secrets manager instead.
+
+        Note: the auto-generated file lives under StateDirectory, so
+        wiping /var/lib/tsundoku invalidates all sessions.
       '';
     };
 
@@ -122,8 +158,12 @@ in
       type = lib.types.nullOr lib.types.str;
       default = null;
       description = ''
-        Full ecto://USER:PASS@HOST/DATABASE URL. If null (default), one
-        is constructed from the database.* options below.
+        Full ecto://USER:PASS@HOST/DATABASE URL, passed through
+        verbatim. If null (default) and database.passwordFile is also
+        null, a URL is built from the database.* options pointing at
+        the auto-provisioned local Postgres. If null but passwordFile
+        is set, the runtime reads it via DATABASE_PASSWORD_FILE so the
+        password never round-trips through URL encoding.
       '';
     };
 
@@ -166,6 +206,8 @@ in
         description = ''
           Path to a file containing the DB password. Ignored when the
           local Postgres is being provisioned (peer auth is used).
+          Loaded into the systemd credentials directory and consumed
+          by runtime.exs via DATABASE_PASSWORD_FILE.
         '';
       };
 
@@ -286,9 +328,7 @@ in
         PHX_LISTEN_IP = cfg.listenAddress;
         PHX_HOST = cfg.host;
         PHX_SCHEME = cfg.scheme;
-        DATABASE_URL =
-          if cfg.databaseUrl != null then cfg.databaseUrl else defaultDbUrl;
-        SECRET_KEY_BASE_FILE = "%d/secret_key_base";
+        SECRET_KEY_BASE_FILE = effectiveSkbPath;
         PHX_CHECK_ORIGIN =
           if builtins.isBool cfg.checkOrigin
           then (if cfg.checkOrigin then "*" else "")
@@ -299,7 +339,7 @@ in
         OBAN_PRUNE_MAX_AGE_DAYS = toString cfg.oban.pruneMaxAgeDays;
         RELEASE_NODE = cfg.nodeName;
         RELEASE_DISTRIBUTION = cfg.distribution;
-      } // lib.optionalAttrs (cfg.urlPort != null) {
+      } // dbEnvVars // lib.optionalAttrs (cfg.urlPort != null) {
         PHX_URL_PORT = toString cfg.urlPort;
       } // lib.optionalAttrs cfg.database.ipv6 {
         ECTO_IPV6 = "true";
@@ -315,23 +355,28 @@ in
         WorkingDirectory = "/var/lib/tsundoku";
 
         LoadCredential =
-          [ "secret_key_base:${cfg.secretKeyBaseFile}" ]
+          lib.optional (cfg.secretKeyBaseFile != null)
+            "secret_key_base:${cfg.secretKeyBaseFile}"
           ++ lib.optional (cfg.cookieFile != null) "cookie:${cfg.cookieFile}"
           ++ lib.optional
             (!effectiveProvision && cfg.database.passwordFile != null)
             "db_password:${cfg.database.passwordFile}";
 
-        # Run database migrations on every start, then start the release.
-        # If a cookie file is provided, source it into RELEASE_COOKIE before exec.
+        # ExecStartPre runs in order: optionally generate the SKB if it's
+        # not present, then run pending migrations. ExecStart starts the
+        # release (optionally through a wrapper that sources the cookie).
         ExecStartPre =
-          "${package}/bin/${package.pname or "tsundoku"} eval 'Tsundoku.Release.migrate()'";
+          lib.optional (cfg.secretKeyBaseFile == null) "${generateSkbScript}"
+          ++ [
+            "${package}/bin/${package.pname or "tsundoku"} eval 'Tsundoku.Release.migrate()'"
+          ];
+
         ExecStart =
           let
             bin = "${package}/bin/${package.pname or "tsundoku"}";
           in
           if cfg.cookieFile != null
           then
-            # Read the cookie file into RELEASE_COOKIE just before the release boots.
             pkgs.writeShellScript "tsundoku-start" ''
               export RELEASE_COOKIE="$(cat "$CREDENTIALS_DIRECTORY/cookie")"
               exec ${bin} start

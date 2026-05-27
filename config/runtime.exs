@@ -69,17 +69,45 @@ end
 # --- Prod-only runtime config ------------------------------------------
 
 if config_env() == :prod do
-  database_url =
-    System.get_env("DATABASE_URL") ||
-      raise """
-      environment variable DATABASE_URL is missing.
-      For example: ecto://USER:PASS@HOST/DATABASE
-      """
+  # Two ways to specify the DB connection:
+  #   1. DATABASE_URL — one ecto:// URL, parsed by Ecto.
+  #   2. Structured: DATABASE_HOSTNAME + DATABASE_USERNAME + DATABASE_NAME
+  #      (+ optional DATABASE_PORT, DATABASE_PASSWORD, DATABASE_PASSWORD_FILE).
+  # The NixOS module uses (1) for auto-provisioned + verbatim-URL flows and
+  # (2) for external-DB-with-password-file, so the password never has to
+  # round-trip through URL encoding.
+  db_repo_config =
+    case System.get_env("DATABASE_URL") do
+      url when is_binary(url) and url != "" ->
+        [url: url]
 
-  config :tsundoku, Tsundoku.Repo,
-    url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    socket_options: H.maybe_ipv6(System.get_env("ECTO_IPV6"))
+      _ ->
+        hostname =
+          System.get_env("DATABASE_HOSTNAME") ||
+            raise """
+            DATABASE_URL or DATABASE_HOSTNAME must be set.
+            """
+
+        [
+          hostname: hostname,
+          username:
+            System.get_env("DATABASE_USERNAME") ||
+              raise("DATABASE_USERNAME must be set when using structured DB env vars."),
+          database:
+            System.get_env("DATABASE_NAME") ||
+              raise("DATABASE_NAME must be set when using structured DB env vars."),
+          port: String.to_integer(System.get_env("DATABASE_PORT") || "5432"),
+          password: H.read_secret("DATABASE_PASSWORD") || ""
+        ]
+    end
+
+  config :tsundoku,
+         Tsundoku.Repo,
+         db_repo_config ++
+           [
+             pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+             socket_options: H.maybe_ipv6(System.get_env("ECTO_IPV6"))
+           ]
 
   secret_key_base =
     H.read_secret("SECRET_KEY_BASE") ||
