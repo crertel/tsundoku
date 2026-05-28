@@ -40,6 +40,7 @@
               pkgs.inotify-tools
               pkgs.postgresql_17
               pkgs.tailwindcss
+              pkgs.web-ext
             ];
 
             ERL_AFLAGS = "-kernel shell_history enabled";

@@ -90,6 +90,7 @@ defmodule Tsundoku.MixProject do
       "assets.static": &copy_static_assets/1,
       "assets.deploy": [
         "assets.static",
+        "extension.build",
         "tailwind default --minify",
         "esbuild default --minify",
         "phx.digest"

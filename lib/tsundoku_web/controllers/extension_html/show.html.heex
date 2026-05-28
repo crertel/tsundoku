@@ -11,22 +11,21 @@
 
     <h3 class="mt-4 text-sm font-semibold text-slate-700">Firefox</h3>
     <p class="mt-1 text-sm text-slate-700">
-      The extension is not yet signed by Mozilla, so stable Firefox will refuse to install it.
-      Use Firefox <strong>Developer Edition</strong>, <strong>Nightly</strong>, or <strong>ESR</strong>
-      with <code>xpinstall.signatures.required</code> set to <code>false</code> in
-      <code>about:config</code>, then visit
+      Click
       <a class="font-medium text-sky-700 hover:text-sky-900" href={~p"/extension/tsundoku.xpi"}>
         tsundoku.xpi
       </a>
-      and accept the install prompt.
+      and accept the install prompt. The extension is signed by
+      <code>tsundoku@minor.gripe</code>, so stable Firefox will accept it.
     </p>
-    <p class="mt-2 text-sm text-slate-700">
-      For a one-off without changing browser settings: open <code>about:debugging</code>
-      → <em>This Firefox</em> → <em>Load Temporary Add-on…</em> and pick
-      <code>manifest.json</code> from the unpacked
+    <p class="mt-2 text-xs text-slate-500">
+      Self-built from source? The unsigned XPI won't install in stable Firefox.
+      Open <code>about:debugging</code> → <em>This Firefox</em>
+      → <em>Load Temporary Add-on…</em> and pick <code>manifest.json</code> from the unpacked
       <a class="font-medium text-sky-700 hover:text-sky-900" href={~p"/extension/tsundoku.zip"}>
         zip
-      </a>.
+      </a>, or re-sign with your own AMO key
+      (<code>mix extension.sign</code>).
     </p>
 
     <h3 class="mt-4 text-sm font-semibold text-slate-700">Chrome / Edge</h3>

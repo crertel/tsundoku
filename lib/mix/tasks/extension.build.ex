@@ -15,6 +15,7 @@ defmodule Mix.Tasks.Extension.Build do
 
   @source "extension"
   @dest "priv/static/extension"
+  @signed "extension/dist/tsundoku.xpi"
   @basename "tsundoku"
 
   def run(_args) do
@@ -43,6 +44,15 @@ defmodule Mix.Tasks.Extension.Build do
     rel = Path.relative_to_cwd(dest)
     Mix.shell().info("Built #{rel}/#{@basename}.zip and #{rel}/#{@basename}.xpi")
     Mix.shell().info("Bundled #{length(files)} files.")
+
+    # If a signed XPI (from `mix extension.sign`) is tracked at
+    # extension/dist/tsundoku.xpi, overlay it onto the unsigned one
+    # we just built. Falls through quietly for forkers who don't
+    # ship a signed binary.
+    if File.exists?(@signed) do
+      File.cp!(@signed, xpi_path)
+      Mix.shell().info("Overlaid signed XPI from #{@signed}.")
+    end
   end
 
   defp collect_files(source) do

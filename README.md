@@ -72,7 +72,49 @@ mix extension.build
 That writes `priv/static/extension/tsundoku.zip` (Chrome) and
 `tsundoku.xpi` (Firefox), both served at `/extension` once
 logged in. The page has install + setup instructions and a one-click
-token generator.
+token generator. `mix extension.build` also runs automatically as part
+of `mix assets.deploy`, so the nix release ships the extension.
+
+### Signing (Firefox / AMO)
+
+Stable Firefox refuses to install unsigned extensions. The deployed
+build ships a Mozilla-signed XPI tied to the `tsundoku@minor.gripe`
+gecko id. To sign your own:
+
+```bash
+export AMO_JWT_ISSUER=...   # from https://addons.mozilla.org/developers/addon/api/key/
+export AMO_JWT_SECRET=...
+mix extension.sign
+```
+
+This wraps `web-ext sign --channel=unlisted`. Unlisted means Mozilla
+signs the XPI but doesn't publish it in the AMO catalog — users still
+install through your tsundoku's `/extension` page, and stable Firefox
+accepts it because of the signature. The signed artifact is written to
+`extension/dist/tsundoku.xpi` (tracked) and `mix extension.build`
+overlays it onto `priv/static/extension/tsundoku.xpi` on subsequent
+builds.
+
+AMO refuses to sign two builds at the same `version`, so bump
+`extension/manifest.json`'s `version` before each `mix extension.sign`.
+
+### Forking
+
+If you fork and want to publish your own signed XPI:
+
+1. Change `browser_specific_settings.gecko.id` in
+   `extension/manifest.json` to something you own (e.g.
+   `tsundoku@your.domain`). AMO won't let two accounts sign against
+   the same id.
+2. Create an AMO account + API key, set `AMO_JWT_ISSUER` /
+   `AMO_JWT_SECRET`.
+3. `mix extension.sign`.
+
+### Chrome / Edge
+
+There's no automated Chrome Web Store flow yet. Users install via
+"Load unpacked" from the unpacked `tsundoku.zip` after enabling
+developer mode at `chrome://extensions`.
 
 ## PWA share target (Android)
 
