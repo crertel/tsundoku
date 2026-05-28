@@ -40,3 +40,7 @@ npm-debug.log
 # Nix build symlinks.
 /result
 /result-*
+
+# web-ext per-account state — pins to the signer's AMO addon record.
+# Forkers must not inherit it; the maintainer's local copy is enough.
+/extension/.amo-upload-uuid

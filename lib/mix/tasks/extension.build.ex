@@ -61,6 +61,7 @@ defmodule Mix.Tasks.Extension.Build do
     |> Path.wildcard()
     |> Enum.filter(&File.regular?/1)
     |> Enum.map(&Path.relative_to(&1, source))
+    |> Enum.reject(&String.starts_with?(&1, "dist/"))
     |> Enum.sort()
   end
 end
