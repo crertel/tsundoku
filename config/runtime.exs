@@ -137,6 +137,14 @@ if config_env() == :prod do
       val -> String.to_integer(val)
     end
 
+  # LiveView's signing_salt is derived deterministically from
+  # secret_key_base so there's no second secret to manage. Rotating
+  # SECRET_KEY_BASE rotates this too, which is what you want.
+  signing_salt =
+    :crypto.hash(:sha256, secret_key_base)
+    |> Base.encode64(padding: false)
+    |> binary_part(0, 24)
+
   config :tsundoku, TsundokuWeb.Endpoint,
     server: true,
     url: [host: host, port: url_port, scheme: scheme],
@@ -145,5 +153,6 @@ if config_env() == :prod do
       port: port
     ],
     secret_key_base: secret_key_base,
+    live_view: [signing_salt: signing_salt],
     check_origin: H.parse_check_origin(System.get_env("PHX_CHECK_ORIGIN"))
 end
