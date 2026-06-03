@@ -24,8 +24,9 @@ config :tsundoku, Oban,
   repo: Tsundoku.Repo
 
 # Configures the endpoint. secret_key_base and live_view.signing_salt are
-# per-env: dev/test set them in their own config files; prod reads them from
-# runtime.exs.
+# per-env: dev/test set them in their own config files; prod's
+# secret_key_base comes from runtime.exs (env var / file), with
+# signing_salt derived from it there.
 config :tsundoku, TsundokuWeb.Endpoint,
   url: [host: "localhost"],
   render_errors: [
