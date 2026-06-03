@@ -88,17 +88,28 @@ if config_env() == :prod do
             DATABASE_URL or DATABASE_HOSTNAME must be set.
             """
 
-        [
-          hostname: hostname,
-          username:
-            System.get_env("DATABASE_USERNAME") ||
-              raise("DATABASE_USERNAME must be set when using structured DB env vars."),
-          database:
-            System.get_env("DATABASE_NAME") ||
-              raise("DATABASE_NAME must be set when using structured DB env vars."),
-          port: String.to_integer(System.get_env("DATABASE_PORT") || "5432"),
-          password: H.read_secret("DATABASE_PASSWORD") || ""
-        ]
+        # Postgrex Unix-socket form: a leading-slash "hostname" is the
+        # socket *directory*, exposed via :socket_dir, not :hostname.
+        # (Ecto's URL parser doesn't accept the unix-socket form at all,
+        # which is why we drove this through structured env vars.)
+        host_opts =
+          if String.starts_with?(hostname, "/") do
+            [socket_dir: hostname]
+          else
+            [hostname: hostname]
+          end
+
+        host_opts ++
+          [
+            username:
+              System.get_env("DATABASE_USERNAME") ||
+                raise("DATABASE_USERNAME must be set when using structured DB env vars."),
+            database:
+              System.get_env("DATABASE_NAME") ||
+                raise("DATABASE_NAME must be set when using structured DB env vars."),
+            port: String.to_integer(System.get_env("DATABASE_PORT") || "5432"),
+            password: H.read_secret("DATABASE_PASSWORD") || ""
+          ]
     end
 
   config :tsundoku,
