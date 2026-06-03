@@ -16,18 +16,18 @@ let
     then cfg.database.provision
     else cfg.databaseUrl == null && cfg.database.passwordFile == null;
 
-  # Three DB flows, picked by what the user set:
-  #   A. effectiveProvision  -> emit DATABASE_URL pointing at local socket
-  #   B. cfg.databaseUrl set -> emit it verbatim
-  #   C. otherwise           -> emit DATABASE_HOSTNAME/PORT/USERNAME/NAME
-  #                             (+ DATABASE_PASSWORD_FILE from LoadCredential)
-  defaultLocalDbUrl =
-    "ecto://${cfg.database.user}@${cfg.database.host}:${toString cfg.database.port}/${cfg.database.name}";
-
+  # Two DB env-var shapes, picked by what the user set:
+  #   A. cfg.databaseUrl set -> emit it verbatim as DATABASE_URL.
+  #   B. otherwise           -> emit structured
+  #                             DATABASE_HOSTNAME/PORT/USERNAME/NAME
+  #                             (+ DATABASE_PASSWORD_FILE from
+  #                             LoadCredential, when set).
+  # The auto-provision case falls into B because Ecto's URL parser
+  # doesn't accept Unix-socket forms — runtime.exs detects a
+  # leading-slash hostname (e.g. /run/postgresql) and routes it
+  # through Postgrex's :socket_dir option instead of :hostname.
   dbEnvVars =
-    if effectiveProvision then {
-      DATABASE_URL = defaultLocalDbUrl;
-    } else if cfg.databaseUrl != null then {
+    if cfg.databaseUrl != null then {
       DATABASE_URL = cfg.databaseUrl;
     } else
       {
