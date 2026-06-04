@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tsundoku",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Save the current page to your Tsundoku with tags.",
   "permissions": ["contextMenus", "storage", "activeTab", "tabs"],
   "host_permissions": ["<all_urls>"],
