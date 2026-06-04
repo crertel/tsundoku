@@ -7,8 +7,11 @@ defmodule TsundokuWeb.SiteLive.Index do
 
   @impl true
   def mount(_params, session, socket) do
+    socket = assign_defaults(session, socket)
+
     {:ok,
-     assign_defaults(session, socket)
+     socket
+     |> subscribe_to_bookmarks(socket.assigns.current_user.id)
      |> assign(
        available_tags: [],
        available_domains: [],
@@ -21,6 +24,42 @@ defmodule TsundokuWeb.SiteLive.Index do
        total_entries: 0,
        total_pages: 0
      )}
+  end
+
+  @impl true
+  def handle_info({:bookmarks_event, _kind, _payload}, socket) do
+    {:noreply, schedule_bookmarks_refetch(socket)}
+  end
+
+  def handle_info(:bookmarks_refetch, socket) do
+    {:noreply, reload_index(socket)}
+  end
+
+  # Re-runs the current page's data load against the latest DB state.
+  # Filter-blind: any bookmarks_event triggers a full refetch of the
+  # current page + tags/domains. Future work: only re-query when the
+  # changed record could intersect the current parsed_query.
+  defp reload_index(socket) do
+    user_id = socket.assigns.current_user.id
+
+    page_result =
+      Bookmarks.search_sites(
+        user_id,
+        socket.assigns.parsed_query,
+        page: socket.assigns.page_number,
+        page_size: socket.assigns.page_size,
+        sort: socket.assigns.sort
+      )
+
+    assign(socket,
+      sites: page_result.entries,
+      total_entries: page_result.total_entries,
+      total_pages: page_result.total_pages,
+      available_tags: Bookmarks.list_user_tag_names(user_id),
+      available_domains: Bookmarks.list_user_domain_names(user_id),
+      total_unfiltered: Bookmarks.count_user_sites(user_id),
+      bookmarks_refetch_timer: nil
+    )
   end
 
   @impl true

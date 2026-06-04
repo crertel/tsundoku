@@ -6,8 +6,11 @@ defmodule TsundokuWeb.TagLive.Index do
 
   @impl true
   def mount(_params, session, socket) do
+    socket = assign_defaults(session, socket)
+
     {:ok,
-     assign_defaults(session, socket)
+     socket
+     |> subscribe_to_bookmarks(socket.assigns.current_user.id)
      |> assign(
        tags: [],
        page_number: 1,
@@ -16,6 +19,24 @@ defmodule TsundokuWeb.TagLive.Index do
        total_entries: 0,
        total_pages: 0
      )}
+  end
+
+  @impl true
+  def handle_info({:bookmarks_event, _kind, _payload}, socket) do
+    {:noreply, schedule_bookmarks_refetch(socket)}
+  end
+
+  def handle_info(:bookmarks_refetch, socket) do
+    # Filter-blind: re-run the current page query.
+    # Future work: ignore events that don't touch a tag.
+    assigns =
+      get_and_assign_page(
+        socket.assigns.page_number,
+        socket.assigns.search,
+        socket.assigns.current_user.id
+      )
+
+    {:noreply, socket |> assign(assigns) |> assign(:bookmarks_refetch_timer, nil)}
   end
 
   @impl true

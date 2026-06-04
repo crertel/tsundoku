@@ -47,4 +47,52 @@ defmodule TsundokuWeb.LiveHelpers do
   def ensure_owner!(record, %User{}) do
     raise Ecto.NoResultsError, queryable: record.__struct__
   end
+
+  # ---- Bookmarks PubSub: debounced refetch on context-level mutations ----
+  #
+  # Every Bookmarks.{create,update,delete}_{site,tag} broadcasts an
+  # ID-only event on `Tsundoku.Bookmarks.topic(user_id)`. LiveViews
+  # opt in via `subscribe_to_bookmarks/2` at mount and define two
+  # handle_info clauses:
+  #
+  #   def handle_info({:bookmarks_event, _kind, _payload}, socket),
+  #     do: {:noreply, schedule_bookmarks_refetch(socket)}
+  #
+  #   def handle_info(:bookmarks_refetch, socket),
+  #     do: {:noreply, reload_my_data(socket)}
+  #
+  # The debouncer collapses a burst of mutations (e.g., bulk import,
+  # rapid tag toggling) into one refetch ~500ms after the last event.
+  #
+  # Filter-aware refetch (only re-querying when the changed record
+  # intersects the current filter set) is future work — for now this
+  # is filter-blind: any event triggers a re-query of the current
+  # view. Single-user DB, queries are cheap, debouncer caps cost.
+
+  @bookmarks_debounce_ms 500
+
+  @doc """
+  Subscribes the calling LiveView process to the user's bookmarks
+  topic on the connected mount. No-op during the dead-render mount.
+  """
+  def subscribe_to_bookmarks(socket, user_id) do
+    if Phoenix.LiveView.connected?(socket) and is_binary(user_id) do
+      Tsundoku.Bookmarks.subscribe(user_id)
+    end
+
+    socket
+  end
+
+  @doc """
+  Cancels any pending refetch timer and schedules a fresh
+  `:bookmarks_refetch` message after `@bookmarks_debounce_ms`.
+  """
+  def schedule_bookmarks_refetch(socket) do
+    if timer = socket.assigns[:bookmarks_refetch_timer] do
+      Process.cancel_timer(timer)
+    end
+
+    timer = Process.send_after(self(), :bookmarks_refetch, @bookmarks_debounce_ms)
+    Phoenix.Component.assign(socket, :bookmarks_refetch_timer, timer)
+  end
 end
