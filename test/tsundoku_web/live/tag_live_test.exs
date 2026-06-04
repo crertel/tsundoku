@@ -31,6 +31,25 @@ defmodule TsundokuWeb.TagLiveTest do
       assert html =~ tag.name
     end
 
+    test "renders newly-broadcast tag after debounce", %{conn: conn, user: user} do
+      conn = log_in_user(conn, user)
+
+      {:ok, index_live, html} =
+        live(conn, Routes.tag_index_path(conn, :index, page: 1, search: ""))
+
+      refute html =~ "broadcast-fresh"
+
+      # Create the tag from outside the LV's own mutation handlers —
+      # the same shape as the extension API or another browser tab
+      # saving a bookmark.
+      {:ok, _} = Bookmarks.create_tag(%{name: "broadcast-fresh", created_by_id: user.id})
+
+      # LiveHelpers debounce is 500ms; give it a bit of slack.
+      Process.sleep(700)
+
+      assert render(index_live) =~ "broadcast-fresh"
+    end
+
     test "cannot view, edit, or delete another user's tag", %{conn: conn, tag: tag} do
       stranger = Tsundoku.AccountsFixtures.user_fixture(confirmed: true)
       conn = log_in_user(conn, stranger)

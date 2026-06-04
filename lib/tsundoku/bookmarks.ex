@@ -1,6 +1,15 @@
 defmodule Tsundoku.Bookmarks do
   @moduledoc """
   The Bookmarks context.
+
+  Mutation functions (`create_site`, `update_site`, `delete_site`,
+  `create_tag`, `update_tag`, `delete_tag`, `delete_sites_for_tag`,
+  `bulk_insert_imported`) broadcast a tiny ID-only event on the owning
+  user's PubSub topic so open LiveView pages can react. Subscribe with
+  `Tsundoku.Bookmarks.subscribe(user_id)`; messages are shaped
+  `{:bookmarks_event, kind, id_or_payload}`. `Metadata.enrich` writes
+  directly via the schema (not via this module) so background metadata
+  fetches stay quiet — by design, see [[reference-trunicht]] notes.
   """
 
   import Ecto.Query, warn: false
@@ -9,6 +18,30 @@ defmodule Tsundoku.Bookmarks do
   alias Tsundoku.Bookmarks.Tag
   alias Tsundoku.Bookmarks.Site
   alias Tsundoku.Bookmarks.SavedSearch
+
+  @doc """
+  PubSub topic used to broadcast bookmark/tag mutations for a user.
+  """
+  def topic(user_id) when is_binary(user_id), do: "user:#{user_id}:bookmarks"
+
+  @doc """
+  Subscribes the calling process to `user_id`'s bookmarks topic.
+  """
+  def subscribe(user_id) when is_binary(user_id) do
+    Phoenix.PubSub.subscribe(Tsundoku.PubSub, topic(user_id))
+  end
+
+  defp broadcast(nil, _kind, _payload), do: :ok
+
+  defp broadcast(user_id, kind, payload) when is_binary(user_id) do
+    Phoenix.PubSub.broadcast(
+      Tsundoku.PubSub,
+      topic(user_id),
+      {:bookmarks_event, kind, payload}
+    )
+
+    :ok
+  end
 
   @doc """
   Returns every tag in the system across all users. NOT scoped to the
@@ -78,9 +111,16 @@ defmodule Tsundoku.Bookmarks do
 
   """
   def create_tag(attrs \\ %{}) do
-    %Tag{}
-    |> Tag.changeset(attrs)
-    |> Repo.insert()
+    result =
+      %Tag{}
+      |> Tag.changeset(attrs)
+      |> Repo.insert()
+
+    with {:ok, tag} <- result do
+      broadcast(tag.created_by_id, :tag_created, tag.id)
+    end
+
+    result
   end
 
   @doc """
@@ -96,9 +136,16 @@ defmodule Tsundoku.Bookmarks do
 
   """
   def update_tag(%Tag{} = tag, attrs) do
-    tag
-    |> Tag.changeset(attrs)
-    |> Repo.update()
+    result =
+      tag
+      |> Tag.changeset(attrs)
+      |> Repo.update()
+
+    with {:ok, updated} <- result do
+      broadcast(updated.created_by_id, :tag_updated, updated.id)
+    end
+
+    result
   end
 
   @doc """
@@ -114,7 +161,13 @@ defmodule Tsundoku.Bookmarks do
 
   """
   def delete_tag(%Tag{} = tag) do
-    Repo.delete(tag)
+    result = Repo.delete(tag)
+
+    with {:ok, _} <- result do
+      broadcast(tag.created_by_id, :tag_deleted, tag.id)
+    end
+
+    result
   end
 
   @doc """
@@ -134,8 +187,14 @@ defmodule Tsundoku.Bookmarks do
       )
       |> Repo.all()
 
-    from(s in Site, where: s.id in ^site_ids)
-    |> Repo.delete_all()
+    result =
+      from(s in Site, where: s.id in ^site_ids)
+      |> Repo.delete_all()
+
+    # Single summary event — caller may have nuked thousands of sites.
+    if site_ids != [], do: broadcast(user_id, :bulk_changed, %{sites_deleted: length(site_ids)})
+
+    result
   end
 
   @doc """
@@ -145,17 +204,24 @@ defmodule Tsundoku.Bookmarks do
   `{:ok, %{sites_deleted, tags_deleted}}`.
   """
   def empty_user_data(%Tsundoku.Accounts.User{id: user_id}) do
-    Repo.transaction(fn ->
-      {sites_deleted, _} =
-        from(s in Site, where: s.created_by_id == ^user_id)
-        |> Repo.delete_all()
+    result =
+      Repo.transaction(fn ->
+        {sites_deleted, _} =
+          from(s in Site, where: s.created_by_id == ^user_id)
+          |> Repo.delete_all()
 
-      {tags_deleted, _} =
-        from(t in Tag, where: t.created_by_id == ^user_id)
-        |> Repo.delete_all()
+        {tags_deleted, _} =
+          from(t in Tag, where: t.created_by_id == ^user_id)
+          |> Repo.delete_all()
 
-      %{sites_deleted: sites_deleted, tags_deleted: tags_deleted}
-    end)
+        %{sites_deleted: sites_deleted, tags_deleted: tags_deleted}
+      end)
+
+    with {:ok, counts} <- result do
+      broadcast(user_id, :bulk_changed, counts)
+    end
+
+    result
   end
 
   @doc """
@@ -1023,8 +1089,12 @@ defmodule Tsundoku.Bookmarks do
       |> Repo.insert()
 
     case result do
-      {:ok, site} -> Tsundoku.Metadata.enrich_async(site)
-      _ -> :ok
+      {:ok, site} ->
+        Tsundoku.Metadata.enrich_async(site)
+        broadcast(site.created_by_id, :site_created, site.id)
+
+      _ ->
+        :ok
     end
 
     result
@@ -1052,6 +1122,10 @@ defmodule Tsundoku.Bookmarks do
       _ -> :ok
     end
 
+    with {:ok, updated} <- result do
+      broadcast(updated.created_by_id, :site_updated, updated.id)
+    end
+
     result
   end
 
@@ -1068,7 +1142,13 @@ defmodule Tsundoku.Bookmarks do
 
   """
   def delete_site(%Site{} = site) do
-    Repo.delete(site)
+    result = Repo.delete(site)
+
+    with {:ok, _} <- result do
+      broadcast(site.created_by_id, :site_deleted, site.id)
+    end
+
+    result
   end
 
   @doc """
@@ -1197,7 +1277,9 @@ defmodule Tsundoku.Bookmarks do
       end)
       |> elem(1)
 
-    %{sites_inserted: sites_inserted, tags_inserted: tags_inserted}
+    summary = %{sites_inserted: sites_inserted, tags_inserted: tags_inserted}
+    broadcast(user_id, :bulk_changed, summary)
+    summary
   end
 
   defp derive_domain(url) do

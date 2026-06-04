@@ -7,8 +7,11 @@ defmodule TsundokuWeb.DomainLive.Index do
 
   @impl true
   def mount(_params, session, socket) do
+    socket = assign_defaults(session, socket)
+
     {:ok,
-     assign_defaults(session, socket)
+     socket
+     |> subscribe_to_bookmarks(socket.assigns.current_user.id)
      |> assign(:page_title, "Domains")
      |> assign(:page_size, @page_size)
      |> assign(:domains, [])
@@ -17,6 +20,29 @@ defmodule TsundokuWeb.DomainLive.Index do
      |> assign(:page_number, 1)
      |> assign(:total_entries, 0)
      |> assign(:total_pages, 0)}
+  end
+
+  @impl true
+  def handle_info({:bookmarks_event, _kind, _payload}, socket) do
+    {:noreply, schedule_bookmarks_refetch(socket)}
+  end
+
+  def handle_info(:bookmarks_refetch, socket) do
+    # Filter-blind: re-run the current page query.
+    page_result =
+      Bookmarks.list_domains(socket.assigns.current_user.id,
+        page: socket.assigns.page_number,
+        page_size: socket.assigns.page_size,
+        search: socket.assigns.search,
+        sort: socket.assigns.sort
+      )
+
+    {:noreply,
+     socket
+     |> assign(:domains, page_result.entries)
+     |> assign(:total_entries, page_result.total_entries)
+     |> assign(:total_pages, page_result.total_pages)
+     |> assign(:bookmarks_refetch_timer, nil)}
   end
 
   @impl true

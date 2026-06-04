@@ -4,6 +4,63 @@ defmodule Tsundoku.BookmarksTest do
   alias Tsundoku.Bookmarks
   alias Tsundoku.AccountsFixtures
 
+  describe "pubsub broadcasts" do
+    test "create_site broadcasts :site_created to the owner's topic" do
+      user = AccountsFixtures.user_fixture()
+      Bookmarks.subscribe(user.id)
+
+      {:ok, site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/broadcast-test",
+          "display_name" => "broadcast test",
+          "created_by_id" => user.id
+        })
+
+      assert_receive {:bookmarks_event, :site_created, id} when id == site.id
+    end
+
+    test "create_tag broadcasts :tag_created to the owner's topic" do
+      user = AccountsFixtures.user_fixture()
+      Bookmarks.subscribe(user.id)
+
+      {:ok, tag} = Bookmarks.create_tag(%{name: "broadcast-tag", created_by_id: user.id})
+
+      assert_receive {:bookmarks_event, :tag_created, id} when id == tag.id
+    end
+
+    test "delete_site broadcasts :site_deleted" do
+      user = AccountsFixtures.user_fixture()
+
+      {:ok, site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/to-delete",
+          "display_name" => "to delete",
+          "created_by_id" => user.id
+        })
+
+      Bookmarks.subscribe(user.id)
+      {:ok, _} = Bookmarks.delete_site(site)
+
+      assert_receive {:bookmarks_event, :site_deleted, id} when id == site.id
+    end
+
+    test "broadcasts do not leak across users" do
+      user_a = AccountsFixtures.user_fixture()
+      user_b = AccountsFixtures.user_fixture()
+
+      Bookmarks.subscribe(user_b.id)
+
+      {:ok, _} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/user-a",
+          "display_name" => "user a's site",
+          "created_by_id" => user_a.id
+        })
+
+      refute_receive {:bookmarks_event, _, _}, 100
+    end
+  end
+
   describe "tags" do
     alias Tsundoku.Bookmarks.Tag
 
