@@ -29,22 +29,26 @@ defmodule TsundokuWeb.ApiController do
     notes = Map.get(params, "notes")
 
     saved_tags =
-      Enum.reduce(tags, [], fn tag, acc ->
-        try do
-          {:ok, saved_tag} = Bookmarks.create_tag(%{name: tag, created_by_id: user.id})
-          [saved_tag | acc]
-        rescue
-          _ -> acc
+      tags
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.map(fn tag ->
+        case Bookmarks.get_user_tag_by_name(tag, user.id) do
+          %Tag{} = found ->
+            found
+
+          nil ->
+            {:ok, created} = Bookmarks.create_tag(%{name: tag, created_by_id: user.id})
+            created
         end
       end)
 
     try do
       Bookmarks.create_site(%{
-        display_name: title,
-        url: url,
-        notes: notes,
-        created_by_id: user.id,
-        tags: saved_tags
+        "display_name" => title,
+        "url" => url,
+        "notes" => notes,
+        "created_by_id" => user.id,
+        "tags" => saved_tags
       })
     rescue
       _ -> nil

@@ -146,6 +146,51 @@ defmodule TsundokuWeb.ApiBookmarkTest do
 
       assert conn.status == 201
     end
+
+    test "attaches brand-new tags to the saved bookmark", %{conn: conn, user: user, token: token} do
+      path = Routes.api_path(conn, :create_bookmark)
+
+      conn
+      |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
+      |> post(path, %{
+        "url" => "https://example.com/fresh",
+        "title" => "fresh",
+        "tags" => ["brand-new-1", "brand-new-2"]
+      })
+
+      site =
+        Tsundoku.Bookmarks.get_user_bookmark_by_url("https://example.com/fresh", user.id)
+        |> Repo.preload(:tags)
+
+      assert site
+      assert Enum.sort(Enum.map(site.tags, & &1.name)) == ["brand-new-1", "brand-new-2"]
+    end
+
+    test "attaches existing tags (not silently dropping them)", %{
+      conn: conn,
+      user: user,
+      token: token,
+      tag: existing_tag
+    } do
+      path = Routes.api_path(conn, :create_bookmark)
+
+      conn
+      |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
+      |> post(path, %{
+        "url" => "https://example.com/mixed",
+        "title" => "mixed",
+        "tags" => [existing_tag.name, "another-new"]
+      })
+
+      site =
+        Tsundoku.Bookmarks.get_user_bookmark_by_url("https://example.com/mixed", user.id)
+        |> Repo.preload(:tags)
+
+      assert site
+
+      assert Enum.sort(Enum.map(site.tags, & &1.name)) ==
+               Enum.sort([existing_tag.name, "another-new"])
+    end
   end
 
   describe "update bookmark" do
