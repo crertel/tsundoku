@@ -19,7 +19,7 @@ config :tsundoku, Oban,
   # Queue concurrency: 5 workers can run in parallel, but per-domain
   # serialization is enforced inside the worker via DomainMutex so we
   # never hit the same host concurrently.
-  queues: [metadata: 5],
+  queues: [metadata: 5, import: 1],
   plugins: [{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7}],
   repo: Tsundoku.Repo
 

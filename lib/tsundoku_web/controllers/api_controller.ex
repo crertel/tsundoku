@@ -311,9 +311,28 @@ defmodule TsundokuWeb.ApiController do
 
     try do
       {:ok, tags, urls} = Bookmarks.import_from_file(path)
-      :ok = Bookmarks.load_urls(tags, urls, user.id)
 
-      json(conn, %{tag_count: MapSet.size(tags), url_count: length(urls)})
+      job_args = %{
+        "user_id" => user.id,
+        "tags" => MapSet.to_list(tags),
+        "urls" =>
+          Enum.map(urls, fn {bm_tags, bm_url, bm_title} ->
+            %{"tags" => bm_tags, "url" => bm_url, "title" => bm_title}
+          end)
+      }
+
+      {:ok, %Oban.Job{id: job_id}} =
+        job_args
+        |> Tsundoku.Workers.ImportBookmarks.new()
+        |> Oban.insert()
+
+      conn
+      |> put_status(202)
+      |> json(%{
+        job_id: job_id,
+        tag_count: MapSet.size(tags),
+        url_count: length(urls)
+      })
     rescue
       err ->
         {:ok, body} = Jason.encode(%{msg: inspect(err)})
@@ -322,4 +341,25 @@ defmodule TsundokuWeb.ApiController do
   end
 
   def import_bookmarks(conn, _), do: conn |> put_status(400) |> json(%{}) |> halt()
+
+  def import_status(conn, %{"job_id" => job_id_str}) do
+    user = conn.assigns.user
+
+    with {job_id, ""} <- Integer.parse(job_id_str),
+         %Oban.Job{} = job <- Tsundoku.Repo.get(Oban.Job, job_id),
+         true <- job.args["user_id"] == user.id do
+      meta = job.meta || %{}
+
+      json(conn, %{
+        state: job.state,
+        processed: meta["processed"] || 0,
+        total: meta["total"] || 0,
+        stage: meta["stage"] || "queued",
+        sites_inserted: meta["sites_inserted"],
+        tags_inserted: meta["tags_inserted"]
+      })
+    else
+      _ -> conn |> put_status(404) |> json(%{msg: "not found"}) |> halt()
+    end
+  end
 end

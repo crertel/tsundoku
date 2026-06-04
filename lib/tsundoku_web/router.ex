@@ -112,6 +112,7 @@ defmodule TsundokuWeb.Router do
     post "/create_bookmark", ApiController, :create_bookmark
     post "/update_bookmark/:bookmark_id", ApiController, :update_bookmark
     post "/import_bookmarks", ApiController, :import_bookmarks
+    get "/import_status/:job_id", ApiController, :import_status
     post "/create_tag", ApiController, :create_tag
     post "/update_tag/:tag_id", ApiController, :update_tag
     post "/create_user", ApiController, :create_user

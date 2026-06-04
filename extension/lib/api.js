@@ -81,4 +81,8 @@ export async function importBookmarks(file) {
   return request("/api/import_bookmarks", { method: "POST", body: formData });
 }
 
+export async function getImportStatus(jobId) {
+  return request(`/api/import_status/${jobId}`);
+}
+
 export { ApiError };

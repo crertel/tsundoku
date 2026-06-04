@@ -1084,44 +1084,130 @@ defmodule Tsundoku.Bookmarks do
     Site.changeset(site, attrs)
   end
 
-  def load_urls(tags, urls, creator_id) do
-    # preload tags into DB
-    :ok =
-      tags
-      |> Enum.each(fn tag ->
-        try do
-          %Tag{}
-          |> Tag.changeset(%{"name" => tag, "created_by_id" => creator_id})
-          |> Tsundoku.Repo.insert!()
-        rescue
-          _ -> nil
+  @bulk_insert_chunk 500
+
+  @doc """
+  Bulk-imports parsed bookmark records using `Repo.insert_all` with
+  `on_conflict: :nothing`, so re-imports are idempotent on the
+  `(url, created_by_id)` / `(name, created_by_id)` unique indexes.
+
+  `url_records` is a list of maps `%{"tags" => [name, ...], "url" =>
+  url, "title" => title}` (string-keyed because this is called from the
+  Oban worker after JSON round-trip). `progress_fn` is invoked after
+  each chunk with `%{processed: n, stage: :sites}`.
+
+  Returns `%{sites_inserted: n, tags_inserted: m}`.
+  """
+  def bulk_insert_imported(tag_names, url_records, user_id, progress_fn \\ fn _ -> :ok end) do
+    now = DateTime.utc_now()
+
+    tag_rows =
+      tag_names
+      |> Enum.uniq()
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.map(fn name ->
+        %{
+          id: Ecto.UUID.generate(),
+          name: name,
+          created_by_id: user_id,
+          inserted_at: now,
+          updated_at: now
+        }
+      end)
+
+    {tags_inserted, _} =
+      Repo.insert_all(Tag, tag_rows,
+        on_conflict: :nothing,
+        conflict_target: [:name, :created_by_id]
+      )
+
+    # Tag and Site IDs are stored as Postgres uuid (binary). The
+    # `sites_tags` join table uses raw insert_all (no schema), so it
+    # needs binary UUIDs — keep them in binary form in this lookup.
+    tag_id_by_name =
+      from(t in Tag, where: t.created_by_id == ^user_id, select: {t.name, t.id})
+      |> Repo.all()
+      |> Map.new(fn {name, id} -> {name, Ecto.UUID.dump!(id)} end)
+
+    progress_fn.(%{processed: 0, stage: :sites})
+
+    sites_inserted =
+      url_records
+      |> Stream.reject(fn r ->
+        url = Map.get(r, "url")
+        is_nil(url) or url == ""
+      end)
+      |> Stream.chunk_every(@bulk_insert_chunk)
+      |> Enum.reduce({0, 0}, fn chunk, {processed, inserted_acc} ->
+        site_rows =
+          Enum.map(chunk, fn %{"url" => url, "title" => title} ->
+            %{
+              id: Ecto.UUID.generate(),
+              url: url,
+              display_name: title || "",
+              domain: derive_domain(url),
+              created_by_id: user_id,
+              inserted_at: now,
+              updated_at: now
+            }
+          end)
+
+        {_count, inserted_sites} =
+          Repo.insert_all(Site, site_rows,
+            on_conflict: :nothing,
+            conflict_target: [:url, :created_by_id],
+            returning: [:id, :url]
+          )
+
+        inserted_id_by_url =
+          Map.new(inserted_sites, &{&1.url, Ecto.UUID.dump!(&1.id)})
+
+        join_rows =
+          Enum.flat_map(chunk, fn %{"tags" => bm_tags, "url" => url} ->
+            case Map.get(inserted_id_by_url, url) do
+              nil ->
+                []
+
+              site_id_bin ->
+                bm_tags
+                |> Enum.uniq()
+                |> Enum.flat_map(fn tag_name ->
+                  case Map.get(tag_id_by_name, tag_name) do
+                    nil -> []
+                    tag_id_bin -> [%{site_id: site_id_bin, tag_id: tag_id_bin}]
+                  end
+                end)
+            end
+          end)
+
+        if join_rows != [] do
+          Repo.insert_all("sites_tags", join_rows)
         end
-      end)
 
-    loaded_tags =
-      Tsundoku.Repo.all(Tag)
-      |> Enum.reduce(%{}, fn tag, loaded_tags ->
-        Map.put(loaded_tags, tag.name, tag)
-      end)
+        Enum.each(inserted_sites, fn s ->
+          %{site_id: s.id}
+          |> Tsundoku.Workers.EnrichMetadata.new()
+          |> Oban.insert()
+        end)
 
-    # load URLs into DB
-    :ok =
-      Enum.each(urls, fn {bm_tags, bm_url, bm_title} ->
-        try do
-          fetched_tags = Enum.map(bm_tags, &loaded_tags[&1])
-
-          %Site{}
-          |> Tsundoku.Bookmarks.Site.changeset(%{
-            "url" => bm_url,
-            "display_name" => bm_title,
-            "tags" => fetched_tags,
-            "created_by_id" => creator_id
-          })
-          |> Tsundoku.Repo.insert!()
-        rescue
-          _ -> nil
-        end
+        new_processed = processed + length(chunk)
+        new_inserted = inserted_acc + length(inserted_sites)
+        progress_fn.(%{processed: new_processed, stage: :sites})
+        {new_processed, new_inserted}
       end)
+      |> elem(1)
+
+    %{sites_inserted: sites_inserted, tags_inserted: tags_inserted}
+  end
+
+  defp derive_domain(url) do
+    case URI.parse(url || "") do
+      %URI{host: host} when is_binary(host) ->
+        host |> String.downcase() |> String.replace_prefix("www.", "")
+
+      _ ->
+        nil
+    end
   end
 
   @backup_version 1
