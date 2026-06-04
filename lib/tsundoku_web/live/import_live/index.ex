@@ -9,13 +9,15 @@ defmodule TsundokuWeb.ImportLive.Index do
      assign_defaults(session, socket)
      |> assign(
        page_title: "Import bookmarks",
+       job_id: nil,
+       progress: nil,
        last_import: nil
      )
      |> allow_upload(:bookmark_import,
        accept: ~w(.html),
        max_entries: 1,
        auto_upload: true,
-       max_file_size: 32_000_000
+       max_file_size: 64_000_000
      )}
   end
 
@@ -24,20 +26,53 @@ defmodule TsundokuWeb.ImportLive.Index do
 
   @impl true
   def handle_event("upload-bookmark", _params, socket) do
-    [result] =
+    user_id = socket.assigns.current_user.id
+
+    [job] =
       consume_uploaded_entries(socket, :bookmark_import, fn %{path: path}, _entry ->
         {:ok, tags, urls} = Bookmarks.import_from_file(path)
-        :ok = Bookmarks.load_urls(tags, urls, socket.assigns.current_user.id)
-        {:ok, %{tag_count: MapSet.size(tags), url_count: length(urls)}}
+
+        job_args = %{
+          "user_id" => user_id,
+          "tags" => MapSet.to_list(tags),
+          "urls" =>
+            Enum.map(urls, fn {bm_tags, bm_url, bm_title} ->
+              %{"tags" => bm_tags, "url" => bm_url, "title" => bm_title}
+            end)
+        }
+
+        {:ok, %Oban.Job{id: job_id}} =
+          job_args
+          |> Tsundoku.Workers.ImportBookmarks.new()
+          |> Oban.insert()
+
+        {:ok, %{job_id: job_id, tag_count: MapSet.size(tags), url_count: length(urls)}}
       end)
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Tsundoku.PubSub, "imports:job:#{job.job_id}")
+    end
 
     {:noreply,
      socket
-     |> assign(:last_import, result)
-     |> put_flash(
-       :info,
-       "Imported #{result.url_count} bookmarks across #{result.tag_count} tags."
-     )}
+     |> assign(:job_id, job.job_id)
+     |> assign(:progress, %{processed: 0, total: job.url_count, stage: "queued"})
+     |> assign(:last_import, nil)
+     |> put_flash(:info, "Importing #{job.url_count} bookmarks in the background…")}
+  end
+
+  @impl true
+  def handle_info({:import_progress, progress}, socket) do
+    {:noreply, assign(socket, :progress, Map.update!(progress, :stage, &to_string/1))}
+  end
+
+  @impl true
+  def handle_info({:import_complete, %{sites_inserted: sites, tags_inserted: tags}}, socket) do
+    {:noreply,
+     socket
+     |> assign(:progress, nil)
+     |> assign(:last_import, %{sites_inserted: sites, tags_inserted: tags})
+     |> put_flash(:info, "Imported #{sites} new bookmarks and #{tags} new tags.")}
   end
 
   @impl true
@@ -80,8 +115,19 @@ defmodule TsundokuWeb.ImportLive.Index do
         </form>
       </div>
 
+      <div :if={@progress} class="mt-6 rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+        <div class="mb-2 text-sm font-medium text-slate-800">
+          {@progress.stage |> String.capitalize()}: {@progress.processed} / {@progress.total}
+        </div>
+        <progress
+          class="w-full"
+          max={max(@progress.total, 1)}
+          value={@progress.processed}
+        />
+      </div>
+
       <div :if={@last_import} class="mt-6 text-sm text-slate-700">
-        Last import: {@last_import.url_count} bookmarks across {@last_import.tag_count} tags.
+        Imported {@last_import.sites_inserted} new bookmarks and {@last_import.tags_inserted} new tags.
         <.link navigate={~p"/sites"} class="font-medium text-sky-700 hover:text-sky-900">
           View sites
         </.link>

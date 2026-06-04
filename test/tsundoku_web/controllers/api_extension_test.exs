@@ -143,9 +143,15 @@ defmodule TsundokuWeb.ApiExtensionTest do
         conn
         |> put_req_header(elem(auth, 0), elem(auth, 1))
         |> post(Routes.api_path(conn, :import_bookmarks), %{"file" => upload})
-        |> json_response(200)
+        |> json_response(202)
 
       assert response["url_count"] >= 1
+      assert is_integer(response["job_id"])
+
+      # Test config sets `Oban testing: :manual`, so drive the job to run.
+      # with_safety: false re-raises worker exceptions instead of discarding.
+      assert %{success: 1, failure: 0} =
+               Oban.drain_queue(queue: :import, with_safety: false)
 
       assert %Tsundoku.Bookmarks.Site{} =
                Bookmarks.get_user_bookmark_by_url("https://example.com/imported", user.id)
