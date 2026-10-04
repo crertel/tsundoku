@@ -28,6 +28,14 @@ defmodule TsundokuWeb.CoreComponents do
   end
 
   @doc """
+  Turns a LiveView upload error into a message for the user.
+  """
+  def upload_error_message(:not_accepted), do: "That file type isn't accepted."
+  def upload_error_message(:too_large), do: "That file is too large."
+  def upload_error_message(:too_many_files), do: "Only one file can be uploaded at a time."
+  def upload_error_message(_), do: "The upload failed."
+
+  @doc """
   Returns a `data:` URL for a cached favicon, or `nil` if the site
   doesn't have favicon bytes stored. Used inline in the rendered
   HTML so we don't need a public per-favicon endpoint.

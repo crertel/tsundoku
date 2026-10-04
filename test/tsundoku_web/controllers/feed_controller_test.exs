@@ -122,6 +122,11 @@ defmodule TsundokuWeb.FeedControllerTest do
     assert response(feed(conn, "#{Ecto.UUID.generate()}.atom"), 404) == "Feed not found"
   end
 
+  test "404s for a token that isn't a UUID", %{conn: conn} do
+    assert response(feed(conn, "not-a-uuid.atom"), 404) == "Feed not found"
+    assert response(feed(conn, "not-a-uuid"), 404) == "Feed not found"
+  end
+
   test "404s once the feed is revoked", %{conn: conn, search: search} do
     old_token = search.feed_token
     {:ok, _} = Bookmarks.disable_feed(search)

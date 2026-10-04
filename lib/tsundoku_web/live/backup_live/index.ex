@@ -23,6 +23,18 @@ defmodule TsundokuWeb.BackupLive.Index do
   def handle_event("restore", _params, socket) do
     user = socket.assigns.current_user
 
+    # A rejected file stays in the entry list unfinished, and consuming
+    # entries while any are unfinished raises.
+    case uploaded_entries(socket, :backup) do
+      {_done, [_ | _]} ->
+        {:noreply, put_flash(socket, :error, "That file was rejected or is still uploading.")}
+
+      {_done, []} ->
+        restore(socket, user)
+    end
+  end
+
+  defp restore(socket, user) do
     case consume_uploaded_entries(socket, :backup, &decode_and_restore(&1, &2, user)) do
       [{:ok, summary}] ->
         {:noreply,
@@ -94,7 +106,7 @@ defmodule TsundokuWeb.BackupLive.Index do
         <% end %>
 
         <%= for {_ref, msg} <- @uploads.backup.errors do %>
-          <div class="mt-3 text-sm text-red-700"><%= msg %></div>
+          <div class="mt-3 text-sm text-red-700"><%= upload_error_message(msg) %></div>
         <% end %>
 
         <form
