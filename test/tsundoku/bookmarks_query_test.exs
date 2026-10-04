@@ -59,6 +59,30 @@ defmodule Tsundoku.BookmarksQueryTest do
       assert parsed.bare_phrase == "hello"
     end
 
+    test "matches field names in any case" do
+      parsed =
+        Bookmarks.parse_site_query(
+          ~s(Tag:Elixir DOMAIN:Example.com Site:other.test URL:Blog Title:"Two Words" ) <>
+            "Metadata:has STATUS:404 -TAG:Rust"
+        )
+
+      assert parsed.tags == ["elixir"]
+      assert parsed.domains == ["example.com", "other.test"]
+      assert parsed.urls == ["blog"]
+      assert parsed.titles == ["Two Words"]
+      assert parsed.has_metadata == true
+      assert parsed.crawl_status == "http_404"
+      assert parsed.exclude_tags == ["rust"]
+      assert parsed.bare_phrase == ""
+    end
+
+    test "keeps quoted text that looks like a field as title text" do
+      parsed = Bookmarks.parse_site_query(~s("URL:foo" notafield:bar))
+
+      assert parsed.urls == []
+      assert parsed.bare_phrase == "URL:foo notafield:bar"
+    end
+
     test "treats a nil or blank query as no filters" do
       for query <- [nil, "", "   "] do
         parsed = Bookmarks.parse_site_query(query)
@@ -86,6 +110,13 @@ defmodule Tsundoku.BookmarksQueryTest do
     test "removes the first matching tag, case-insensitively" do
       assert Bookmarks.remove_filter("tag:a tag:b foo", "tag", "A") == "tag:b foo"
       assert Bookmarks.remove_filter("tag:a tag:a", "tag", "a") == "tag:a"
+    end
+
+    test "removes filters whose field name is in another case" do
+      assert Bookmarks.remove_filter("Tag:a url:b", "tag", "a") == "url:b"
+      assert Bookmarks.remove_filter("TITLE:hello tag:a", "title", "hello") == "tag:a"
+      assert Bookmarks.remove_filter("Status:404 foo", "status", "http_404") == "foo"
+      assert Bookmarks.remove_filter("hello Metadata:has", "title", "hello") == "metadata:has"
     end
 
     test "removes quoted values" do
