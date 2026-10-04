@@ -432,6 +432,45 @@ defmodule TsundokuWeb.SiteLiveTest do
       )
     end
 
+    test "clicking the same tag again doesn't stack duplicate filters", %{conn: conn} do
+      {:ok, view, _html} = live(conn, Routes.site_index_path(conn, :index))
+
+      for _ <- 1..3 do
+        view |> element(~s(button[phx-click="add_filter_tag"]), "elixir") |> render_click()
+      end
+
+      assert_patch(view, Routes.site_index_path(conn, :index, page: 1, q: "tag:elixir"))
+
+      html = render(view)
+      assert length(Regex.scan(~r/phx-value-type="tag"/, html)) == 1
+      assert html =~ "1 filtered bookmarks (of 2)"
+    end
+
+    test "typing a filter that's already applied changes nothing", %{conn: conn} do
+      {:ok, view, _html} = live(conn, Routes.site_index_path(conn, :index, q: "tag:elixir"))
+
+      view
+      |> form("#site-search-form", query_field: %{query: "tag:Elixir tag:elixir url:blog"})
+      |> render_submit()
+
+      assert_patch(view, Routes.site_index_path(conn, :index, page: 1, q: "tag:elixir url:blog"))
+      assert length(Regex.scan(~r/phx-value-type="tag"/, render(view))) == 1
+    end
+
+    test "a row's domain link doesn't repeat a domain filter that's already applied", %{
+      conn: conn,
+      guide: guide
+    } do
+      {:ok, view, _html} =
+        live(conn, Routes.site_index_path(conn, :index, q: "domain:blog.example.com"))
+
+      assert has_element?(
+               view,
+               ~s(#site-#{guide.id} a[href="/sites?page=1&q=domain%3Ablog.example.com"]),
+               "domain:blog.example.com"
+             )
+    end
+
     test "add_filter_tag from a tag picker only accepts the user's tags", %{conn: conn} do
       {:ok, view, _html} = live(conn, Routes.site_index_path(conn, :index, q: "url:example"))
 
