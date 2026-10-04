@@ -102,12 +102,7 @@ defmodule Tsundoku.Metadata do
   defp fetch_favicon(""), do: {nil, nil}
 
   defp fetch_favicon(url) do
-    case Req.get(url,
-           headers: [{"user-agent", @user_agent}],
-           receive_timeout: @receive_timeout,
-           max_redirects: 5,
-           decode_body: false
-         ) do
+    case get(url, [{"user-agent", @user_agent}]) do
       {:ok, %Req.Response{status: status, body: body, headers: headers}}
       when status in 200..299 ->
         if byte_size(body) <= @favicon_max_body_size do
@@ -135,16 +130,11 @@ defmodule Tsundoku.Metadata do
 
   @doc "Returns `{:ok, html}` on success, `{:error, reason}` otherwise."
   def fetch_html(url) do
-    case Req.get(url,
-           headers: [
-             {"user-agent", @user_agent},
-             {"accept", @accept},
-             {"accept-language", @accept_language}
-           ],
-           receive_timeout: @receive_timeout,
-           max_redirects: 5,
-           decode_body: false
-         ) do
+    case get(url, [
+           {"user-agent", @user_agent},
+           {"accept", @accept},
+           {"accept-language", @accept_language}
+         ]) do
       {:ok, %Req.Response{status: status, body: body, headers: headers}}
       when status in 200..299 ->
         if html?(headers) and byte_size(body) <= @max_body_size do
@@ -159,6 +149,14 @@ defmodule Tsundoku.Metadata do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  # `:metadata_req_options` overrides the defaults; the test env uses it
+  # to turn off Req's retry backoff and shorten the timeout.
+  defp get(url, headers) do
+    [headers: headers, receive_timeout: @receive_timeout, max_redirects: 5, decode_body: false]
+    |> Keyword.merge(Application.get_env(:tsundoku, :metadata_req_options, []))
+    |> then(&Req.get(url, &1))
   end
 
   @doc """
