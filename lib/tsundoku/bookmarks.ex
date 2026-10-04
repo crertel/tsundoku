@@ -70,7 +70,7 @@ defmodule Tsundoku.Bookmarks do
         },
         params \\ []
       ) do
-    q_string = "%#{search_string}%"
+    q_string = "%" <> escape_like(search_string) <> "%"
 
     q =
       from t in Tag,
@@ -1226,10 +1226,7 @@ defmodule Tsundoku.Bookmarks do
 
     sites_inserted =
       url_records
-      |> Stream.reject(fn r ->
-        url = Map.get(r, "url")
-        is_nil(url) or url == ""
-      end)
+      |> Stream.filter(fn r -> web_url?(Map.get(r, "url")) end)
       |> Stream.chunk_every(@bulk_insert_chunk)
       |> Enum.reduce({0, 0}, fn chunk, {processed, inserted_acc} ->
         site_rows =
@@ -1534,7 +1531,11 @@ defmodule Tsundoku.Bookmarks do
         _ -> false
       end)
 
-    urls = root_nodes |> Enum.map(&parse_node(&1, [])) |> List.flatten()
+    urls =
+      root_nodes
+      |> Enum.map(&parse_node(&1, []))
+      |> List.flatten()
+      |> Enum.filter(fn {_tags, url, _title} -> web_url?(url) end)
 
     tags =
       urls
@@ -1558,28 +1559,61 @@ defmodule Tsundoku.Bookmarks do
     |> String.replace(~r/last_modified=".*?"/i, "")
   end
 
+  @doc """
+  Walks one `<dl>` of a bookmarks export and returns its links as
+  `{tags, url, title}` tuples, where `tags` are the names of the folders
+  the link sits in. `governing_tags` are the folders above this `<dl>`.
+
+  A folder is an `<h3>` followed by the `<dl>` holding its contents.
+  Anything else (`<dd>` descriptions, stray text, links with no `href`)
+  is passed over, so one odd entry doesn't fail the whole file.
+  """
   def parse_node({_, _, kids}, governing_tags) do
-    %{urls: urls} =
-      Enum.reduce(
-        kids,
-        %{tags: governing_tags, urls: []},
-        fn
-          {"dl", _attrs, _kids} = knode, %{tags: tags, urls: urls} = state ->
-            newurls = parse_node(knode, tags)
-            # we pop off the head tag, since that was added by the `h3` case
-            [_newtag | oldtags] = tags
-            %{state | urls: newurls ++ urls, tags: oldtags}
-
-          {"a", attrs, [title]}, %{tags: tags, urls: urls} = state ->
-            {"href", url} = List.keyfind(attrs, "href", 0)
-            %{state | urls: [{tags, url, title} | urls]}
-
-          {"h3", _attrs, [label]}, %{tags: tags} = state ->
-            %{state | tags: [label | tags]}
-        end
-      )
-
-    # goal here is to return a list of { [tag1, tag2, tag3...], url, label} tuples
+    %{urls: urls} = walk_bookmark_nodes(kids, governing_tags, %{folder: nil, urls: []})
     urls
   end
+
+  defp walk_bookmark_nodes(nodes, tags, state) do
+    Enum.reduce(nodes, state, fn
+      {"dl", _attrs, _kids} = node, %{folder: folder, urls: urls} = state ->
+        folder_tags = if folder, do: [folder | tags], else: tags
+        %{state | urls: parse_node(node, folder_tags) ++ urls, folder: nil}
+
+      {"a", attrs, kids}, %{urls: urls} = state ->
+        case List.keyfind(attrs, "href", 0) do
+          {"href", url} when url != "" -> %{state | urls: [{tags, url, node_text(kids)} | urls]}
+          _ -> state
+        end
+
+      {"h3", _attrs, kids}, state ->
+        case node_text(kids) do
+          "" -> %{state | folder: nil}
+          label -> %{state | folder: label}
+        end
+
+      # An unclosed `<dd>` swallows the entries after it, so look inside
+      # anything that isn't a folder or a link.
+      {_tag, _attrs, kids}, state when is_list(kids) ->
+        walk_bookmark_nodes(kids, tags, state)
+
+      _text_or_comment, state ->
+        state
+    end)
+  end
+
+  defp node_text(kids), do: kids |> Floki.text() |> String.trim()
+
+  # Browser exports include entries that aren't pages: `javascript:`
+  # bookmarklets, Firefox `place:` queries, `file:` paths, and so on.
+  defp web_url?(url) when is_binary(url) do
+    case URI.parse(url) do
+      %URI{scheme: scheme, host: host} when scheme in ["http", "https"] and is_binary(host) ->
+        host != ""
+
+      _ ->
+        false
+    end
+  end
+
+  defp web_url?(_), do: false
 end

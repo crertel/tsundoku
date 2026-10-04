@@ -76,6 +76,17 @@ defmodule Tsundoku.MetadataServer do
     send_resp(conn, 403, "nope")
   end
 
+  # "Café déjà" encoded as Latin-1, not UTF-8.
+  get "/latin1" do
+    body =
+      "<html><head><title>Caf" <>
+        <<0xE9>> <> " d" <> <<0xE9>> <> "j" <> <<0xE0>> <> "</title></head></html>"
+
+    conn
+    |> put_resp_header("content-type", "text/html; charset=iso-8859-1")
+    |> send_resp(200, body)
+  end
+
   get "/broken" do
     send_resp(conn, 500, "boom")
   end

@@ -85,13 +85,16 @@ defmodule TsundokuWeb.TagLive.Index do
 
   @impl true
   def handle_event("nav", %{"page" => page}, socket) do
-    {:noreply, push_patch(socket, to: Routes.tag_index_path(socket, :index, page: page))}
+    {:noreply,
+     push_patch(socket,
+       to: Routes.tag_index_path(socket, :index, page: page, search: socket.assigns.search)
+     )}
   end
 
   def handle_event("run_search", %{"query_field" => %{"query" => search}}, socket) do
     {:noreply,
      push_patch(socket,
-       to: Routes.tag_index_path(socket, :index, page: socket.assigns.page_number, search: search)
+       to: Routes.tag_index_path(socket, :index, page: 1, search: search)
      )}
   end
 

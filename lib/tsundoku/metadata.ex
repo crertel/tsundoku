@@ -89,6 +89,7 @@ defmodule Tsundoku.Metadata do
   defp status_from_reason({:http_status, code}), do: "http_#{code}"
   defp status_from_reason(:timeout), do: "timeout"
   defp status_from_reason(:not_html_or_too_large), do: "not_html"
+  defp status_from_reason(:invalid_url), do: "invalid_url"
 
   defp status_from_reason(%{reason: :timeout}), do: "timeout"
   defp status_from_reason(%{__struct__: mod}) when is_atom(mod), do: "network_error"
@@ -138,7 +139,7 @@ defmodule Tsundoku.Metadata do
       {:ok, %Req.Response{status: status, body: body, headers: headers}}
       when status in 200..299 ->
         if html?(headers) and byte_size(body) <= @max_body_size do
-          {:ok, body}
+          {:ok, to_utf8(body)}
         else
           {:error, :not_html_or_too_large}
         end
@@ -157,6 +158,18 @@ defmodule Tsundoku.Metadata do
     [headers: headers, receive_timeout: @receive_timeout, max_redirects: 5, decode_body: false]
     |> Keyword.merge(Application.get_env(:tsundoku, :metadata_req_options, []))
     |> then(&Req.get(url, &1))
+  rescue
+    # Req raises on URLs it can't request at all: no host, or a scheme
+    # other than http(s).
+    ArgumentError -> {:error, :invalid_url}
+  end
+
+  # Postgres rejects text that isn't valid UTF-8, which would fail the
+  # whole update. Bodies that aren't UTF-8 are read as Latin-1, the usual
+  # legacy encoding; pages in other legacy encodings come out garbled
+  # but still get crawled.
+  defp to_utf8(body) do
+    if String.valid?(body), do: body, else: :unicode.characters_to_binary(body, :latin1)
   end
 
   @doc """

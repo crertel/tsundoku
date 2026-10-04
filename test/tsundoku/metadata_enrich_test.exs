@@ -143,6 +143,26 @@ defmodule Tsundoku.MetadataEnrichTest do
       assert enriched.crawl_status == "not_html"
     end
 
+    test "reads pages that aren't UTF-8", %{base: base, user: user} do
+      site = site_fixture(user, base <> "/latin1")
+
+      assert {:ok, enriched} = Metadata.enrich(site)
+
+      assert enriched.display_name == "Café déjà"
+      assert enriched.crawl_status == "ok"
+    end
+
+    test "records invalid_url for urls that can't be requested", %{user: user} do
+      for url <- ["javascript:alert(1)", "place:sort=8", "http://"] do
+        site = site_fixture(user, url)
+
+        assert Metadata.fetch_html(url) == {:error, :invalid_url}
+        assert {:ok, enriched} = Metadata.enrich(site)
+        assert enriched.crawl_status == "invalid_url"
+        assert %DateTime{} = enriched.crawled_at
+      end
+    end
+
     test "records server errors by status", %{base: base, user: user} do
       site = site_fixture(user, base <> "/broken")
 
