@@ -22,7 +22,9 @@ defmodule TsundokuWeb.SiteLive.Index do
        page_size: 50,
        search: "",
        total_entries: 0,
-       total_pages: 0
+       total_pages: 0,
+       total_unfiltered: 0,
+       sort: :recency
      )}
   end
 
@@ -73,12 +75,14 @@ defmodule TsundokuWeb.SiteLive.Index do
     socket
     |> assign(:page_title, "Edit Site")
     |> assign(:site, site)
+    |> assign_new(:search_input, fn -> "" end)
   end
 
   defp apply_action(socket, :new, _params) do
     socket
     |> assign(:page_title, "New Site")
     |> assign(:site, %Site{})
+    |> assign_new(:search_input, fn -> "" end)
   end
 
   defp apply_action(socket, :index, params) do
@@ -585,7 +589,7 @@ defmodule TsundokuWeb.SiteLive.Index do
               <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-baseline gap-x-2">
                     <a href={ site.url } class="min-w-0 max-w-full truncate text-sm font-semibold text-slate-950 hover:text-sky-700" target="_blank">
-                      <%= if site.display_name == "" do%>
+                      <%= if site.display_name in [nil, ""] do%>
                         <%= site.url %>
                       <% else  %>
                         <%= site.display_name %>

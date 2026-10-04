@@ -28,7 +28,7 @@ defmodule TsundokuWeb.ImportLive.Index do
   def handle_event("upload-bookmark", _params, socket) do
     user_id = socket.assigns.current_user.id
 
-    [job] =
+    jobs =
       consume_uploaded_entries(socket, :bookmark_import, fn %{path: path}, _entry ->
         {:ok, tags, urls} = Bookmarks.import_from_file(path)
 
@@ -49,16 +49,21 @@ defmodule TsundokuWeb.ImportLive.Index do
         {:ok, %{job_id: job_id, tag_count: MapSet.size(tags), url_count: length(urls)}}
       end)
 
+    {:noreply, track_import(socket, jobs)}
+  end
+
+  defp track_import(socket, []), do: put_flash(socket, :error, "No file was uploaded.")
+
+  defp track_import(socket, [job]) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Tsundoku.PubSub, "imports:job:#{job.job_id}")
     end
 
-    {:noreply,
-     socket
-     |> assign(:job_id, job.job_id)
-     |> assign(:progress, %{processed: 0, total: job.url_count, stage: "queued"})
-     |> assign(:last_import, nil)
-     |> put_flash(:info, "Importing #{job.url_count} bookmarks in the background…")}
+    socket
+    |> assign(:job_id, job.job_id)
+    |> assign(:progress, %{processed: 0, total: job.url_count, stage: "queued"})
+    |> assign(:last_import, nil)
+    |> put_flash(:info, "Importing #{job.url_count} bookmarks in the background…")
   end
 
   @impl true
