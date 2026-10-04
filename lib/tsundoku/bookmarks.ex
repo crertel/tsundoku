@@ -9,7 +9,7 @@ defmodule Tsundoku.Bookmarks do
   `Tsundoku.Bookmarks.subscribe(user_id)`; messages are shaped
   `{:bookmarks_event, kind, id_or_payload}`. `Metadata.enrich` writes
   directly via the schema (not via this module) so background metadata
-  fetches stay quiet — by design, see [[reference-trunicht]] notes.
+  fetches stay quiet, by design.
   """
 
   import Ecto.Query, warn: false
