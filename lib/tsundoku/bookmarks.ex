@@ -810,10 +810,22 @@ defmodule Tsundoku.Bookmarks do
     end
   end
 
+  # Field names match in any case (phone keyboards capitalise the first
+  # word) and come out lowercased, so everything downstream of the
+  # tokenizer only has to know the lowercase spelling.
   defp tokenize_site_query(query) do
-    ~r/-?(?:tag|domain|site|url|title|metadata|status):"[^"]*"|-?(?:tag|domain|site|url|title|metadata|status):\S+|"[^"]*"|\S+/
+    ~r/-?(?:tag|domain|site|url|title|metadata|status):"[^"]*"|-?(?:tag|domain|site|url|title|metadata|status):\S+|"[^"]*"|\S+/i
     |> Regex.scan(query || "")
     |> List.flatten()
+    |> Enum.map(&downcase_field_name/1)
+  end
+
+  defp downcase_field_name(token) do
+    Regex.replace(
+      ~r/^(-?)(tag|domain|site|url|title|metadata|status):/i,
+      token,
+      fn _, negation, field -> negation <> String.downcase(field) <> ":" end
+    )
   end
 
   @doc """
