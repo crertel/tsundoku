@@ -215,17 +215,6 @@ defmodule TsundokuWeb.SiteLive.Index do
   def handle_event("remove_filter", %{"type" => type, "value" => value}, socket) do
     new_query = Bookmarks.remove_filter(socket.assigns.search, type, value)
 
-    socket =
-      if type == "text" do
-        assign(
-          socket,
-          :search_input,
-          Bookmarks.remove_filter(socket.assigns.search_input, "text", value)
-        )
-      else
-        socket
-      end
-
     {:noreply,
      push_patch(socket,
        to: index_path(socket, page: 1, q: new_query, sort: socket.assigns.sort)

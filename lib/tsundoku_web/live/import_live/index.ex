@@ -26,6 +26,18 @@ defmodule TsundokuWeb.ImportLive.Index do
 
   @impl true
   def handle_event("upload-bookmark", _params, socket) do
+    # A rejected file stays in the entry list unfinished, and consuming
+    # entries while any are unfinished raises.
+    case uploaded_entries(socket, :bookmark_import) do
+      {_done, [_ | _]} ->
+        {:noreply, put_flash(socket, :error, "That file was rejected or is still uploading.")}
+
+      {_done, []} ->
+        {:noreply, start_import(socket)}
+    end
+  end
+
+  defp start_import(socket) do
     user_id = socket.assigns.current_user.id
 
     jobs =
@@ -49,7 +61,7 @@ defmodule TsundokuWeb.ImportLive.Index do
         {:ok, %{job_id: job_id, tag_count: MapSet.size(tags), url_count: length(urls)}}
       end)
 
-    {:noreply, track_import(socket, jobs)}
+    track_import(socket, jobs)
   end
 
   defp track_import(socket, []), do: put_flash(socket, :error, "No file was uploaded.")
@@ -101,7 +113,7 @@ defmodule TsundokuWeb.ImportLive.Index do
         <% end %>
 
         <%= for {_ref, msg} <- @uploads.bookmark_import.errors do %>
-          <div class="mb-3 text-sm text-red-700"><%= msg %></div>
+          <div class="mb-3 text-sm text-red-700"><%= upload_error_message(msg) %></div>
         <% end %>
 
         <form

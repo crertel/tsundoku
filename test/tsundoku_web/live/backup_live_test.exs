@@ -97,6 +97,23 @@ defmodule TsundokuWeb.BackupLiveTest do
 
       assert view |> form("#restore-form") |> render_submit() =~ "No file was uploaded."
     end
+
+    test "rejects a file that isn't json", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, "/backup")
+
+      input =
+        file_input(view, "#restore-form", :backup, [
+          %{name: "notes.txt", content: "hello", type: "text/plain"}
+        ])
+
+      assert {:error, [[_ref, :not_accepted]]} = render_upload(input, "notes.txt")
+      assert render(view) =~ "That file type isn&#39;t accepted."
+
+      assert view |> form("#restore-form") |> render_submit() =~
+               "That file was rejected or is still uploading."
+
+      assert Bookmarks.count_user_sites(user.id) == 0
+    end
   end
 
   describe "GET /backup/export" do

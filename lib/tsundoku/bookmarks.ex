@@ -1459,7 +1459,10 @@ defmodule Tsundoku.Bookmarks do
   def get_saved_search!(id), do: Repo.get!(SavedSearch, id)
 
   def get_saved_search_by_token(token) when is_binary(token) do
-    Repo.get_by(SavedSearch, feed_token: token)
+    case Ecto.UUID.cast(token) do
+      {:ok, uuid} -> Repo.get_by(SavedSearch, feed_token: uuid)
+      :error -> nil
+    end
   end
 
   def change_saved_search(%SavedSearch{} = ss, attrs \\ %{}) do

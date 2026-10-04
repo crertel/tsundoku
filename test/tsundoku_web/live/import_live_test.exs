@@ -81,4 +81,22 @@ defmodule TsundokuWeb.ImportLiveTest do
 
     assert view |> form("#import-bookmark-form") |> render_submit() =~ "No file was uploaded."
   end
+
+  test "rejects a file that isn't html", %{conn: conn, user: user} do
+    {:ok, view, _html} = live(conn, "/import")
+
+    input =
+      file_input(view, "#import-bookmark-form", :bookmark_import, [
+        %{name: "notes.txt", content: "hello", type: "text/plain"}
+      ])
+
+    assert {:error, [[_ref, :not_accepted]]} = render_upload(input, "notes.txt")
+    assert render(view) =~ "That file type isn&#39;t accepted."
+
+    assert view |> form("#import-bookmark-form") |> render_submit() =~
+             "That file was rejected or is still uploading."
+
+    assert Oban.drain_queue(queue: :import).success == 0
+    assert Bookmarks.count_user_sites(user.id) == 0
+  end
 end

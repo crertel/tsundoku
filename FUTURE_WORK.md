@@ -21,11 +21,10 @@ git log for what's actually in.
 
 **Extension polish**
 6. Mobile Firefox support
-7. AMO unlisted signing for one-click install — eventually
 
 **Bigger swings**
-8. Reading-status workflow (unread / read / archived) — tempting
-9. Multi-user sharing primitives (invites, follow, collections) — tempting
+7. Reading-status workflow (unread / read / archived) — tempting
+8. Multi-user sharing primitives (invites, follow, collections) — tempting
 
 ## Quality-of-life polish (small)
 
@@ -57,10 +56,6 @@ git log for what's actually in.
 
 - **Mobile Firefox support.** Extension code is probably close to
   working as-is; needs testing + manifest tweaks.
-- **AMO unlisted signing** so Firefox can install the `.xpi` from
-  the site without a developer-mode browser. Mozilla signs unlisted
-  XPIs for free; you upload, they auto-review, you swap the file
-  on the server. One-time setup, ~5 minutes of clicking.
 
 ## Bigger swings
 
