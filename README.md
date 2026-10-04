@@ -30,6 +30,11 @@ out of scope.
 - **Backup / restore** (JSON dump endpoint + `mix bookmarks.export`
   and `mix bookmarks.restore` tasks; idempotent restore).
 - **Wayback Machine and archive.ph** links on every bookmark.
+- **Crawler page** at `/admin/crawl`: how many bookmarks are crawled,
+  what the queue is doing, and recent results; pause and resume; queue
+  never-crawled or failed bookmarks; set how many pages are fetched at
+  once, the delay between fetches from one domain, and the request
+  timeout. Settings are server-wide and survive restarts.
 - **Health dashboard** at `/admin/health`: DB latency, Oban queue
   states, BEAM memory, online users (Phoenix.Presence).
 - **Account ops**: empty account (wipe data, keep login) or deactivate

@@ -9,6 +9,9 @@ defmodule Tsundoku.DomainMutex do
   process exits (via `Process.monitor/1`) even if it forgets to call
   `release/1` explicitly.
 
+  A release can ask for a cooldown, during which the domain stays busy
+  for everyone. That is how the crawler spaces out requests to one host.
+
   Single-node only.
   """
 
@@ -22,21 +25,32 @@ defmodule Tsundoku.DomainMutex do
 
   @doc """
   Try to take the lock for `domain`. Returns `:ok` if acquired or
-  `:busy` if another caller holds it. A `nil` or empty domain is a
-  no-op that returns `:ok` (we don't serialize sites without a domain).
+  `:busy` if another caller holds it or it is cooling down. A `nil` or
+  empty domain is a no-op that returns `:ok` (we don't serialize sites
+  without a domain).
   """
   def try_acquire(domain) when is_binary(domain) and domain != "",
     do: GenServer.call(@name, {:acquire, domain, self()})
 
   def try_acquire(_), do: :ok
 
-  @doc "Release the lock for `domain`. Safe to call even if not held."
-  def release(domain) when is_binary(domain) and domain != "",
-    do: GenServer.cast(@name, {:release, domain, self()})
+  @doc """
+  Release the lock for `domain`. Safe to call even if not held. With a
+  `cooldown_ms` above zero, the domain stays busy for that long after
+  the release.
+  """
+  def release(domain, cooldown_ms \\ 0)
 
-  def release(_), do: :ok
+  def release(domain, cooldown_ms) when is_binary(domain) and domain != "",
+    do: GenServer.cast(@name, {:release, domain, self(), cooldown_ms})
+
+  def release(_, _), do: :ok
 
   ## Server
+  #
+  # State maps a domain to `{:held, owner, monitor_ref}` or
+  # `{:cooldown, token}`. The token ties a cooldown to the timer that
+  # ends it, so a stale timer can't clear a newer entry.
 
   @impl true
   def init(_), do: {:ok, %{}}
@@ -46,7 +60,7 @@ defmodule Tsundoku.DomainMutex do
     case Map.get(state, domain) do
       nil ->
         ref = Process.monitor(owner)
-        {:reply, :ok, Map.put(state, domain, {owner, ref})}
+        {:reply, :ok, Map.put(state, domain, {:held, owner, ref})}
 
       _ ->
         {:reply, :busy, state}
@@ -54,11 +68,11 @@ defmodule Tsundoku.DomainMutex do
   end
 
   @impl true
-  def handle_cast({:release, domain, owner}, state) do
+  def handle_cast({:release, domain, owner, cooldown_ms}, state) do
     case Map.get(state, domain) do
-      {^owner, ref} ->
+      {:held, ^owner, ref} ->
         Process.demonitor(ref, [:flush])
-        {:noreply, Map.delete(state, domain)}
+        {:noreply, start_cooldown(state, domain, cooldown_ms)}
 
       _ ->
         {:noreply, state}
@@ -69,9 +83,28 @@ defmodule Tsundoku.DomainMutex do
   def handle_info({:DOWN, ref, :process, _pid, _reason}, state) do
     new_state =
       state
-      |> Enum.reject(fn {_, {_, owner_ref}} -> owner_ref == ref end)
+      |> Enum.reject(fn
+        {_domain, {:held, _owner, owner_ref}} -> owner_ref == ref
+        _ -> false
+      end)
       |> Map.new()
 
     {:noreply, new_state}
   end
+
+  def handle_info({:cooldown_over, domain, token}, state) do
+    case Map.get(state, domain) do
+      {:cooldown, ^token} -> {:noreply, Map.delete(state, domain)}
+      _ -> {:noreply, state}
+    end
+  end
+
+  defp start_cooldown(state, domain, cooldown_ms)
+       when is_integer(cooldown_ms) and cooldown_ms > 0 do
+    token = make_ref()
+    Process.send_after(self(), {:cooldown_over, domain, token}, cooldown_ms)
+    Map.put(state, domain, {:cooldown, token})
+  end
+
+  defp start_cooldown(state, domain, _cooldown_ms), do: Map.delete(state, domain)
 end

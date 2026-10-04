@@ -30,6 +30,14 @@ defmodule TsundokuWeb.Layouts do
         </div>
         <div>
           <.link
+            href={~p"/admin/crawl"}
+            class="rounded-md px-3 py-2 font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950"
+          >
+            Crawler
+          </.link>
+        </div>
+        <div>
+          <.link
             href={~p"/admin/health"}
             class="rounded-md px-3 py-2 font-medium text-slate-700 hover:bg-slate-200 hover:text-slate-950"
           >

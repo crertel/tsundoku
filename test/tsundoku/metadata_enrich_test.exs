@@ -173,7 +173,7 @@ defmodule Tsundoku.MetadataEnrichTest do
     test "records a timeout when the page doesn't answer in time", %{base: base, user: user} do
       site = site_fixture(user, base <> "/slow", %{"display_name" => "Slow"})
 
-      assert {:ok, enriched} = Metadata.enrich(site)
+      assert {:ok, enriched} = Metadata.enrich(site, timeout: 500)
 
       assert enriched.crawl_status == "timeout"
       assert %DateTime{} = enriched.crawled_at
@@ -218,12 +218,26 @@ defmodule Tsundoku.MetadataEnrichTest do
   end
 
   describe "EnrichMetadata worker" do
-    test "enriches the site and releases the domain lock", %{base: base, user: user} do
+    test "enriches the site and frees the domain when no delay is set", %{base: base, user: user} do
+      {:ok, _} = Tsundoku.Crawl.update_settings(%{delay_ms: 0})
       site = site_fixture(user, base <> "/page")
 
       assert :ok = perform_job(EnrichMetadata, %{site_id: site.id})
 
       assert Repo.get!(Site, site.id).crawl_status == "ok"
+      assert Tsundoku.DomainMutex.try_acquire(site.domain) == :ok
+      Tsundoku.DomainMutex.release(site.domain)
+    end
+
+    test "leaves the domain alone for the configured delay", %{base: base, user: user} do
+      {:ok, _} = Tsundoku.Crawl.update_settings(%{delay_ms: 300})
+      site = site_fixture(user, base <> "/page")
+
+      assert :ok = perform_job(EnrichMetadata, %{site_id: site.id})
+      assert Tsundoku.DomainMutex.try_acquire(site.domain) == :busy
+
+      Process.sleep(400)
+
       assert Tsundoku.DomainMutex.try_acquire(site.domain) == :ok
       Tsundoku.DomainMutex.release(site.domain)
     end
@@ -236,6 +250,24 @@ defmodule Tsundoku.MetadataEnrichTest do
 
       assert {:snooze, 5} = perform_job(EnrichMetadata, %{site_id: site.id})
       assert Repo.get!(Site, site.id).crawl_status == nil
+    end
+
+    test "snoozes for at least the configured delay", %{base: base, user: user} do
+      {:ok, _} = Tsundoku.Crawl.update_settings(%{delay_ms: 7_500})
+      site = site_fixture(user, base <> "/page")
+
+      :ok = Tsundoku.DomainMutex.try_acquire(site.domain)
+      on_exit(fn -> Tsundoku.DomainMutex.release(site.domain) end)
+
+      assert {:snooze, 8} = perform_job(EnrichMetadata, %{site_id: site.id})
+    end
+
+    test "gives up on a page after the configured timeout", %{base: base, user: user} do
+      {:ok, _} = Tsundoku.Crawl.update_settings(%{timeout_ms: 1_000, delay_ms: 0})
+      site = site_fixture(user, base <> "/slow")
+
+      assert :ok = perform_job(EnrichMetadata, %{site_id: site.id})
+      assert Repo.get!(Site, site.id).crawl_status == "timeout"
     end
 
     test "is a no-op when the site has been deleted" do

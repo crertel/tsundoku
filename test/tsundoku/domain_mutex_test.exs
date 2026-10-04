@@ -59,6 +59,51 @@ defmodule Tsundoku.DomainMutexTest do
     DomainMutex.release(domain)
   end
 
+  test "a release with a cooldown keeps the domain busy until it ends" do
+    domain = unique("cooldown.com")
+
+    assert :ok = DomainMutex.try_acquire(domain)
+    DomainMutex.release(domain, 150)
+
+    assert :busy = DomainMutex.try_acquire(domain)
+    Process.sleep(60)
+    assert :busy = DomainMutex.try_acquire(domain)
+
+    Process.sleep(150)
+    assert :ok = DomainMutex.try_acquire(domain)
+    DomainMutex.release(domain)
+  end
+
+  test "a cooldown of zero frees the domain immediately" do
+    domain = unique("no-cooldown.com")
+
+    assert :ok = DomainMutex.try_acquire(domain)
+    DomainMutex.release(domain, 0)
+
+    assert :ok = DomainMutex.try_acquire(domain)
+    DomainMutex.release(domain)
+  end
+
+  test "only the holder can start a cooldown" do
+    domain = unique("not-mine.com")
+    parent = self()
+
+    holder =
+      spawn(fn ->
+        assert :ok = DomainMutex.try_acquire(domain)
+        send(parent, :acquired)
+        receive do: (:release -> DomainMutex.release(domain))
+      end)
+
+    assert_receive :acquired, 500
+    DomainMutex.release(domain, 5_000)
+    send(holder, :release)
+    Process.sleep(20)
+
+    assert :ok = DomainMutex.try_acquire(domain)
+    DomainMutex.release(domain)
+  end
+
   test "nil / empty domains are not serialized" do
     assert :ok = DomainMutex.try_acquire(nil)
     assert :ok = DomainMutex.try_acquire(nil)
