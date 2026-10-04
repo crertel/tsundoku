@@ -51,6 +51,44 @@ defmodule TsundokuWeb.TagLiveTest do
       assert render(index_live) =~ "broadcast-fresh"
     end
 
+    test "keeps the search when paging and starts a new search on page 1", %{
+      conn: conn,
+      user: user
+    } do
+      for n <- 10..29 do
+        {:ok, _} = Bookmarks.create_tag(%{name: "match#{n}", created_by_id: user.id})
+      end
+
+      conn = log_in_user(conn, user)
+      {:ok, index_live, _html} = live(conn, Routes.tag_index_path(conn, :index, search: "match"))
+
+      index_live |> element(~s(a[phx-click="nav"][phx-value-page="2"]), "2") |> render_click()
+      assert_patch(index_live, Routes.tag_index_path(conn, :index, page: 2, search: "match"))
+
+      html = render(index_live)
+      assert html =~ "match29"
+      refute html =~ "some name"
+
+      index_live |> form("#tag-search-form", query_field: %{query: "match1"}) |> render_change()
+      assert_patch(index_live, Routes.tag_index_path(conn, :index, page: 1, search: "match1"))
+    end
+
+    test "treats % and _ in the search box literally", %{conn: conn, user: user} do
+      {:ok, _} = Bookmarks.create_tag(%{name: "100%", created_by_id: user.id})
+      {:ok, _} = Bookmarks.create_tag(%{name: "snake_case", created_by_id: user.id})
+
+      conn = log_in_user(conn, user)
+
+      {:ok, _live, html} = live(conn, Routes.tag_index_path(conn, :index, search: "%"))
+      assert html =~ "100%"
+      refute html =~ "snake_case"
+      refute html =~ "some name"
+
+      {:ok, _live, html} = live(conn, Routes.tag_index_path(conn, :index, search: "_"))
+      assert html =~ "snake_case"
+      refute html =~ "some name"
+    end
+
     test "cannot view, edit, or delete another user's tag", %{conn: conn, tag: tag} do
       stranger = Tsundoku.AccountsFixtures.user_fixture(confirmed: true)
       conn = log_in_user(conn, stranger)
