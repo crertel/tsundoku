@@ -11,25 +11,30 @@ jobs:
 
     name: Build and test
     runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
     services:
       db:
-        image: postgres:latest
+        image: postgres:17
         ports: ['5432:5432']
         env:
           POSTGRES_PASSWORD: postgres
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up Elixir
-      uses: erlef/setup-beam@988e02bfe678367a02564f65ca2e37726dc0268f
+      uses: erlef/setup-beam@v1
       with:
-        elixir-version: '1.12.3' # Define the elixir version [required]
-        otp-version: '24.1' # Define the OTP version [required]
+        # Keep in step with the versions flake.nix provides.
+        elixir-version: '1.18.3'
+        otp-version: '27.3'
     - name: Restore dependencies cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
-        path: deps
+        path: |
+          deps
+          _build
         key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
         restore-keys: ${{ runner.os }}-mix-
     - name: Install dependencies
