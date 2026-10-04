@@ -5,264 +5,149 @@ defmodule TsundokuWeb.ApiController do
   alias Tsundoku.Bookmarks.{Site, Tag}
 
   def test(conn, _) do
-    conn
-    |> send_resp(200, "{}")
+    json(conn, %{})
   end
 
   def create_user(conn, %{"email" => email, "password" => password}) do
-    with {:create_user, {:ok, _user}} <-
-           {:create_user, Accounts.register_user(%{"email" => email, "password" => password})} do
-      conn
-      |> send_resp(201, "{}")
-    else
-      {:create_user, err} ->
-        conn |> send_resp(500, "{\"msg\":\"#{inspect(err)}\"}") |> halt
+    case Accounts.register_user(%{"email" => email, "password" => password}) do
+      {:ok, _user} -> respond(conn, 201, %{})
+      {:error, changeset} -> validation_error(conn, changeset)
     end
   end
 
-  def create_user(conn, _) do
-    conn |> send_resp(400, "{}") |> halt
-  end
+  def create_user(conn, _), do: respond(conn, 400, %{})
 
-  def create_bookmark(conn, %{"title" => title, "url" => url, "tags" => tags} = params) do
+  def create_bookmark(conn, %{"title" => title, "url" => url, "tags" => tags} = params)
+      when is_list(tags) do
     user = conn.assigns.user
-    notes = Map.get(params, "notes")
 
-    saved_tags =
-      tags
-      |> Enum.reject(&(&1 in [nil, ""]))
-      |> Enum.map(fn tag ->
-        case Bookmarks.get_user_tag_by_name(tag, user.id) do
-          %Tag{} = found ->
-            found
-
-          nil ->
-            {:ok, created} = Bookmarks.create_tag(%{name: tag, created_by_id: user.id})
-            created
-        end
-      end)
-
-    try do
+    result =
       Bookmarks.create_site(%{
         "display_name" => title,
         "url" => url,
-        "notes" => notes,
+        "notes" => Map.get(params, "notes"),
         "created_by_id" => user.id,
-        "tags" => saved_tags
+        "tags" => resolve_tags(user, tags)
       })
-    rescue
-      _ -> nil
+
+    case result do
+      {:ok, _site} -> respond(conn, 201, %{})
+      {:error, changeset} -> validation_error(conn, changeset)
     end
-
-    conn |> send_resp(201, "{}") |> halt
   end
 
-  def create_bookmark(conn, _) do
-    conn |> send_resp(400, "{}") |> halt
-  end
+  def create_bookmark(conn, _), do: respond(conn, 400, %{})
 
   def get_bookmark(conn, %{"bookmark_id" => bookmark_id}) do
     user = conn.assigns.user
 
-    try do
-      case Bookmarks.get_site(bookmark_id) do
-        %Site{} = bookmark ->
-          bm =
-            bookmark
-            |> Tsundoku.Repo.preload(:created_by)
-            |> Tsundoku.Repo.preload(:tags)
+    case get_by_uuid(&Bookmarks.get_site/1, bookmark_id) do
+      nil ->
+        respond(conn, 404, %{})
 
-          if bm.created_by != user do
-            conn |> send_resp(403, "{}") |> halt
-          else
-            {:ok, json} =
-              Jason.encode(%{
-                id: bm.id,
-                created_by: bm.created_by.id,
-                display_name: bm.display_name,
-                url: bm.url,
-                tags: bm.tags |> Enum.map(& &1.name)
-              })
+      %Site{created_by_id: owner_id} when owner_id != user.id ->
+        respond(conn, 403, %{})
 
-            conn |> send_resp(200, json) |> halt
-          end
+      %Site{} = bookmark ->
+        bookmark = Tsundoku.Repo.preload(bookmark, :tags)
 
-        nil ->
-          conn |> send_resp(404, "{}") |> halt
-      end
-    rescue
-      _ -> conn |> send_resp(404, "{}") |> halt
+        respond(conn, 200, %{
+          id: bookmark.id,
+          created_by: user.id,
+          display_name: bookmark.display_name,
+          url: bookmark.url,
+          tags: Enum.map(bookmark.tags, & &1.name)
+        })
     end
-  end
-
-  def get_bookmark(conn, _) do
-    conn |> send_resp(404, "{}") |> halt
   end
 
   def update_bookmark(
         conn,
-        %{
-          "bookmark_id" => bookmark_id,
-          "title" => title,
-          "url" => url,
-          "tags" => tags
-        } = params
-      ) do
+        %{"bookmark_id" => bookmark_id, "title" => title, "url" => url, "tags" => tags} = params
+      )
+      when is_list(tags) do
     user = conn.assigns.user
-    notes = Map.get(params, "notes")
-    bookmark = Bookmarks.get_site(bookmark_id) |> Tsundoku.Repo.preload(:created_by)
 
-    cond do
-      is_nil(bookmark) ->
-        conn |> send_resp(404, "{}") |> halt
+    case get_by_uuid(&Bookmarks.get_site/1, bookmark_id) do
+      nil ->
+        respond(conn, 404, %{})
 
-      bookmark.created_by != user ->
-        conn |> send_resp(403, "{}") |> halt
+      %Site{created_by_id: owner_id} when owner_id != user.id ->
+        respond(conn, 403, %{})
 
-      true ->
-        new_tags =
-          Enum.reduce(tags, [], fn tag, acc ->
-            found_tag =
-              case Bookmarks.get_user_tag_by_name(tag, user.id) do
-                %Tsundoku.Bookmarks.Tag{} = tag ->
-                  tag
+      %Site{} = bookmark ->
+        result =
+          Bookmarks.update_site(bookmark, %{
+            "display_name" => title,
+            "url" => url,
+            "notes" => Map.get(params, "notes"),
+            "created_by_id" => user.id,
+            "tags" => resolve_tags(user, tags)
+          })
 
-                nil ->
-                  {:ok, saved_tag} = Bookmarks.create_tag(%{name: tag, created_by_id: user.id})
-                  saved_tag
-              end
-
-            [found_tag | acc]
-          end)
-
-        try do
-          {:ok, new_site} =
-            Bookmarks.update_site(bookmark, %{
-              "display_name" => title,
-              "url" => url,
-              "notes" => notes,
-              "created_by_id" => user.id,
-              "tags" => new_tags
+        case result do
+          {:ok, site} ->
+            respond(conn, 201, %{
+              id: site.id,
+              created_by: user.id,
+              title: site.display_name,
+              url: site.url,
+              tags: Enum.map(site.tags, & &1.name)
             })
 
-          {:ok, json} =
-            Jason.encode(%{
-              id: new_site.id,
-              created_by: new_site.created_by.id,
-              title: new_site.display_name,
-              url: new_site.url,
-              tags: Enum.map(new_site.tags, & &1.name)
-            })
-
-          conn |> send_resp(201, json) |> halt
-        rescue
-          err ->
-            {:ok, json} = Jason.encode(%{msg: inspect(err)})
-            conn |> send_resp(500, json) |> halt
+          {:error, changeset} ->
+            validation_error(conn, changeset)
         end
     end
   end
 
-  def update_bookmark(conn, _) do
-    conn |> send_resp(400, "{}") |> halt
-  end
+  def update_bookmark(conn, _), do: respond(conn, 400, %{})
 
   def create_tag(conn, %{"name" => name}) do
     user = conn.assigns.user
 
-    try do
-      {:ok, %Tag{} = tag} = Bookmarks.create_tag(%{name: name, created_by_id: user.id})
-
-      {:ok, json} =
-        Jason.encode(%{
-          id: tag.id,
-          created_by: user.id,
-          name: tag.name
-        })
-
-      conn |> send_resp(201, json) |> halt
-    rescue
-      err ->
-        {:ok, json} = Jason.encode(%{msg: inspect(err)})
-        conn |> send_resp(500, json) |> halt
+    case Bookmarks.create_tag(%{name: name, created_by_id: user.id}) do
+      {:ok, tag} -> respond(conn, 201, %{id: tag.id, created_by: user.id, name: tag.name})
+      {:error, changeset} -> validation_error(conn, changeset)
     end
   end
 
-  def create_tag(conn, _) do
-    conn |> send_resp(400, "{}") |> halt
-  end
+  def create_tag(conn, _), do: respond(conn, 400, %{})
 
   def get_tag(conn, %{"tag_id" => tag_id}) do
     user = conn.assigns.user
 
-    try do
-      case Bookmarks.get_tag(tag_id) do
-        %Tag{} = tag ->
-          t = tag |> Tsundoku.Repo.preload(:created_by)
+    case get_by_uuid(&Bookmarks.get_tag/1, tag_id) do
+      nil ->
+        respond(conn, 404, %{})
 
-          if t.created_by != user do
-            conn |> send_resp(403, "{}") |> halt
-          else
-            {:ok, json} =
-              Jason.encode(%{
-                id: t.id,
-                created_by: t.created_by.id,
-                name: t.name
-              })
+      %Tag{created_by_id: owner_id} when owner_id != user.id ->
+        respond(conn, 403, %{})
 
-            conn |> send_resp(200, json) |> halt
-          end
-
-        nil ->
-          conn |> send_resp(404, "{}") |> halt
-      end
-    rescue
-      _ -> conn |> send_resp(404, "{}") |> halt
+      %Tag{} = tag ->
+        respond(conn, 200, %{id: tag.id, created_by: user.id, name: tag.name})
     end
-  end
-
-  def get_tag(conn, _) do
-    conn |> send_resp(404, "{}") |> halt
   end
 
   def update_tag(conn, %{"tag_id" => tag_id, "name" => name}) do
     user = conn.assigns.user
-    tag = Bookmarks.get_tag(tag_id) |> Tsundoku.Repo.preload(:created_by)
 
-    cond do
-      is_nil(tag) ->
-        conn |> send_resp(404, "{}") |> halt
+    case get_by_uuid(&Bookmarks.get_tag/1, tag_id) do
+      nil ->
+        respond(conn, 404, %{})
 
-      tag.created_by != user ->
-        conn |> send_resp(403, "{}") |> halt
+      %Tag{created_by_id: owner_id} when owner_id != user.id ->
+        respond(conn, 403, %{})
 
-      true ->
-        try do
-          {:ok, new_tag} =
-            Bookmarks.update_tag(tag, %{
-              "name" => name,
-              "created_by_id" => user.id
-            })
-
-          {:ok, json} =
-            Jason.encode(%{
-              id: new_tag.id,
-              created_by: new_tag.created_by.id,
-              name: new_tag.name
-            })
-
-          conn |> send_resp(201, json) |> halt
-        rescue
-          err ->
-            {:ok, json} = Jason.encode(%{msg: inspect(err)})
-            conn |> send_resp(500, json) |> halt
+      %Tag{} = tag ->
+        case Bookmarks.update_tag(tag, %{"name" => name, "created_by_id" => user.id}) do
+          {:ok, tag} -> respond(conn, 201, %{id: tag.id, created_by: user.id, name: tag.name})
+          {:error, changeset} -> validation_error(conn, changeset)
         end
     end
   end
 
-  def update_tag(conn, _) do
-    conn |> send_resp(400, "{}") |> halt
-  end
+  def update_tag(conn, _), do: respond(conn, 400, %{})
 
   def list_tags(conn, _params) do
     user = conn.assigns.user
@@ -338,9 +223,7 @@ defmodule TsundokuWeb.ApiController do
         url_count: length(urls)
       })
     rescue
-      err ->
-        {:ok, body} = Jason.encode(%{msg: inspect(err)})
-        conn |> send_resp(500, body) |> halt()
+      _ -> respond(conn, 422, %{msg: "Couldn't read that file as a bookmarks export."})
     end
   end
 
@@ -365,5 +248,51 @@ defmodule TsundokuWeb.ApiController do
     else
       _ -> conn |> put_status(404) |> json(%{msg: "not found"}) |> halt()
     end
+  end
+
+  defp respond(conn, status, body) when status >= 400,
+    do: conn |> put_status(status) |> json(body) |> halt()
+
+  defp respond(conn, status, body), do: conn |> put_status(status) |> json(body)
+
+  # 422 with the per-field errors, plus a one-line `msg` the extension
+  # shows as-is.
+  defp validation_error(conn, %Ecto.Changeset{} = changeset) do
+    errors =
+      Ecto.Changeset.traverse_errors(changeset, &TsundokuWeb.CoreComponents.translate_error/1)
+
+    msg =
+      Enum.map_join(errors, "; ", fn {field, messages} ->
+        "#{field}: #{Enum.join(messages, ", ")}"
+      end)
+
+    respond(conn, 422, %{msg: msg, errors: errors})
+  end
+
+  # Ids come from the URL; anything that isn't a UUID can't match a row.
+  defp get_by_uuid(getter, id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} -> getter.(uuid)
+      :error -> nil
+    end
+  end
+
+  # Maps tag names onto the user's tags, creating any that don't exist yet.
+  defp resolve_tags(user, names) do
+    names
+    |> Enum.filter(&is_binary/1)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
+    |> Enum.map(fn name ->
+      case Bookmarks.get_user_tag_by_name(name, user.id) do
+        %Tag{} = tag ->
+          tag
+
+        nil ->
+          {:ok, tag} = Bookmarks.create_tag(%{name: name, created_by_id: user.id})
+          tag
+      end
+    end)
   end
 end

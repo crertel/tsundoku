@@ -119,7 +119,7 @@ defmodule TsundokuWeb.ApiBookmarkTest do
     end
 
     @good_bookmark %{
-      "url" => "https://www.example.com",
+      "url" => "https://www.example.com/new",
       "title" => "test site",
       "tags" => ["a", "b"]
     }
@@ -250,7 +250,7 @@ defmodule TsundokuWeb.ApiBookmarkTest do
       assert conn.status == 201
       assert response["id"] == bookmark.id
       assert response["created_by"] == bookmark.created_by.id
-      assert response["tags"] == ["d", "c"]
+      assert response["tags"] == ["c", "d"]
     end
   end
 end

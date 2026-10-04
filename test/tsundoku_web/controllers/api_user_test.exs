@@ -89,7 +89,7 @@ defmodule TsundokuWeb.ApiUserTest do
         |> put_req_header("authorization", "bearer #{Base.encode64(token)}")
         |> post(path, %{"email" => user.email, "password" => "passwordpassword"})
 
-      assert conn.status == 500
+      assert conn.status == 422
       assert conn.halted
     end
 
