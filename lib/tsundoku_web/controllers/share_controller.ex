@@ -70,7 +70,7 @@ defmodule TsundokuWeb.ShareController do
 
   defp extract_url_from_text(text) do
     case Regex.run(~r{https?://\S+}, text) do
-      [match] -> String.trim_trailing(match, ".,;:!?\"'")
+      [match] -> String.replace(match, ~r/[.,;:!?"']+$/, "")
       _ -> nil
     end
   end
