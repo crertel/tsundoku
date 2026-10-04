@@ -283,19 +283,28 @@ defmodule TsundokuWeb.SiteLive.Index do
   defp legacy_query(_params), do: ""
 
   defp append_query_fragment(query, field, value) do
-    [String.trim(query || ""), Bookmarks.query_fragment(field, value)]
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.join(" ")
+    {_, new_q} = append_typed_to_query(query, Bookmarks.query_fragment(field, value))
+    new_q
   end
 
+  # Filters the query already has are skipped, so clicking the same tag
+  # or typing the same filter twice doesn't stack duplicates.
   defp append_typed_to_query(current_q, typed) do
-    typed_tokens = typed |> Bookmarks.parse_site_query() |> serialize_as_filter_tokens()
+    current_q = String.trim(current_q || "")
+    existing = current_q |> Bookmarks.parse_site_query() |> serialize_as_filter_tokens()
+
+    typed_tokens =
+      typed
+      |> Bookmarks.parse_site_query()
+      |> serialize_as_filter_tokens()
+      |> Enum.uniq()
+      |> Enum.reject(&(&1 in existing))
 
     if typed_tokens == [] do
       {:unchanged, current_q}
     else
       new_q =
-        [String.trim(current_q || "") | typed_tokens]
+        [current_q | typed_tokens]
         |> Enum.reject(&(&1 == ""))
         |> Enum.join(" ")
 
