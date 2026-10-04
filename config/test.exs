@@ -26,9 +26,12 @@ config :tsundoku, TsundokuWeb.Endpoint,
 # Logger level is set at runtime by config/runtime.exs (LOG_LEVEL env var,
 # defaults to :warning in test).
 
-# Crawler tests exercise failures; don't sit through Req's retry backoff
-# or the full production timeout.
-config :tsundoku, :metadata_req_options, retry: false, receive_timeout: 1_000
+# Crawler tests exercise failures; don't sit through Req's retry backoff.
+config :tsundoku, :metadata_req_options, retry: false
+
+# Queues don't run in tests, so there is nothing to push saved crawl
+# settings to at boot.
+config :tsundoku, :apply_crawl_settings_on_boot, false
 
 # Oban jobs are enqueued but not executed during tests. Tests that want
 # to drive a job to completion call `Oban.drain_queue/1` explicitly.

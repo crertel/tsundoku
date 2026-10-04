@@ -140,6 +140,7 @@ defmodule TsundokuWeb.Router do
       live "/backup", BackupLive.Index, :index
 
       live "/admin/health", HealthLive.Index, :index
+      live "/admin/crawl", CrawlLive.Index, :index
 
       live "/sites", SiteLive.Index, :index
       live "/sites/new", SiteLive.Index, :new

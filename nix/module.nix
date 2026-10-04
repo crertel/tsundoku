@@ -232,7 +232,9 @@ in
           Number of metadata-fetch workers run in parallel. Per-domain
           serialization is enforced inside the worker so the crawler
           still doesn't hit the same host concurrently. Maps to
-          OBAN_METADATA_CONCURRENCY.
+          OBAN_METADATA_CONCURRENCY. This is only the starting value:
+          once crawl settings are saved on the /admin/crawl page, the
+          saved concurrency takes over.
         '';
       };
 

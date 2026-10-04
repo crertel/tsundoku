@@ -48,17 +48,18 @@ defmodule Tsundoku.Metadata do
   @doc """
   Synchronous: fetch the page, parse metadata, update the site. Returns
   `{:ok, site}` or `{:error, reason}`. Intended for tests and scripts;
-  production paths should use `enrich_async/1`.
+  production paths should use `enrich_async/1`. `opts[:timeout]` sets how
+  long to wait for each response, in milliseconds.
   """
-  def enrich(%Site{} = site) do
+  def enrich(%Site{} = site, opts \\ []) do
     now = DateTime.utc_now()
     site_with_tags = Repo.preload(site, :tags)
 
     attrs =
-      case fetch_html(site.url) do
+      case fetch_html(site.url, opts) do
         {:ok, html} ->
           extracted = extract(html, site.url)
-          {favicon_data, favicon_ct} = fetch_favicon(extracted.favicon_url)
+          {favicon_data, favicon_ct} = fetch_favicon(extracted.favicon_url, opts)
 
           %{
             "description" => extracted.description,
@@ -99,11 +100,11 @@ defmodule Tsundoku.Metadata do
   # silent: a missing favicon doesn't fail the rest of the enrichment.
   @favicon_max_body_size 512 * 1024
 
-  defp fetch_favicon(nil), do: {nil, nil}
-  defp fetch_favicon(""), do: {nil, nil}
+  defp fetch_favicon(nil, _opts), do: {nil, nil}
+  defp fetch_favicon("", _opts), do: {nil, nil}
 
-  defp fetch_favicon(url) do
-    case get(url, [{"user-agent", @user_agent}]) do
+  defp fetch_favicon(url, opts) do
+    case get(url, [{"user-agent", @user_agent}], opts) do
       {:ok, %Req.Response{status: status, body: body, headers: headers}}
       when status in 200..299 ->
         if byte_size(body) <= @favicon_max_body_size do
@@ -129,13 +130,20 @@ defmodule Tsundoku.Metadata do
     end
   end
 
-  @doc "Returns `{:ok, html}` on success, `{:error, reason}` otherwise."
-  def fetch_html(url) do
-    case get(url, [
-           {"user-agent", @user_agent},
-           {"accept", @accept},
-           {"accept-language", @accept_language}
-         ]) do
+  @doc """
+  Returns `{:ok, html}` on success, `{:error, reason}` otherwise.
+  `opts[:timeout]` is how long to wait for the response, in milliseconds.
+  """
+  def fetch_html(url, opts \\ []) do
+    case get(
+           url,
+           [
+             {"user-agent", @user_agent},
+             {"accept", @accept},
+             {"accept-language", @accept_language}
+           ],
+           opts
+         ) do
       {:ok, %Req.Response{status: status, body: body, headers: headers}}
       when status in 200..299 ->
         if html?(headers) and byte_size(body) <= @max_body_size do
@@ -154,8 +162,13 @@ defmodule Tsundoku.Metadata do
 
   # `:metadata_req_options` overrides the defaults; the test env uses it
   # to turn off Req's retry backoff and shorten the timeout.
-  defp get(url, headers) do
-    [headers: headers, receive_timeout: @receive_timeout, max_redirects: 5, decode_body: false]
+  defp get(url, headers, opts) do
+    [
+      headers: headers,
+      receive_timeout: Keyword.get(opts, :timeout, @receive_timeout),
+      max_redirects: 5,
+      decode_body: false
+    ]
     |> Keyword.merge(Application.get_env(:tsundoku, :metadata_req_options, []))
     |> then(&Req.get(url, &1))
   rescue
