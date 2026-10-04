@@ -136,7 +136,7 @@ defmodule TsundokuWeb.TagLive.Index do
       </div>
 
       <div class="mb-6">
-        <form phx-change="run_search" phx-submit="run_search" class="w-full">
+        <form id="tag-search-form" phx-change="run_search" phx-submit="run_search" class="w-full">
           <%= text_input :query_field,
               :query,
               placeholder: "Search tags",
