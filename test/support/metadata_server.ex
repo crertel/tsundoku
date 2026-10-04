@@ -76,6 +76,25 @@ defmodule Tsundoku.MetadataServer do
     send_resp(conn, 403, "nope")
   end
 
+  get "/broken" do
+    send_resp(conn, 500, "boom")
+  end
+
+  # Outlasts the test env's receive timeout.
+  get "/slow" do
+    Process.sleep(1_500)
+    html(conn, "<html><head><title>Slow</title></head></html>")
+  end
+
+  get "/untyped-icon-page" do
+    html(conn, ~s(<html><head><link rel="icon" href="/untyped.ico" /></head></html>))
+  end
+
+  # A favicon served without a content-type header.
+  get "/untyped.ico" do
+    send_resp(conn, 200, @png)
+  end
+
   match _ do
     send_resp(conn, 404, "not found")
   end

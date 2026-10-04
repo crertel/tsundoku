@@ -12,7 +12,24 @@ defmodule Tsundoku.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      releases: releases()
+      releases: releases(),
+      test_coverage: test_coverage()
+    ]
+  end
+
+  # Mix tasks, release tasks, and test support aren't exercised by the
+  # suite; leaving them in drags the total down without telling us anything.
+  defp test_coverage do
+    [
+      ignore_modules: [
+        ~r/^Mix\.Tasks\./,
+        Tsundoku.Release,
+        Tsundoku.AccountsFixtures,
+        Tsundoku.DataCase,
+        Tsundoku.MetadataServer,
+        TsundokuWeb.ChannelCase,
+        TsundokuWeb.ConnCase
+      ]
     ]
   end
 

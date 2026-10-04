@@ -2,6 +2,7 @@ defmodule TsundokuWeb.UserSettingsControllerTest do
   use TsundokuWeb.ConnCase, async: true
 
   alias Tsundoku.Accounts
+  alias Tsundoku.Bookmarks
   import Tsundoku.AccountsFixtures
 
   setup :register_and_log_in_user
@@ -132,6 +133,135 @@ defmodule TsundokuWeb.UserSettingsControllerTest do
       conn = build_conn()
       conn = get(conn, Routes.user_settings_path(conn, :confirm_email, token))
       assert redirected_to(conn) == Routes.user_session_path(conn, :new)
+    end
+  end
+
+  describe "PUT /users/settings (empty account form)" do
+    setup %{user: user} do
+      {:ok, tag} = Bookmarks.create_tag(%{"name" => "mine", "created_by_id" => user.id})
+
+      {:ok, _} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/mine",
+          "created_by_id" => user.id,
+          "tags" => [tag]
+        })
+
+      :ok
+    end
+
+    defp empty_account(conn, params) do
+      put(
+        conn,
+        Routes.user_settings_path(conn, :update),
+        Map.put(params, "action", "empty_account")
+      )
+    end
+
+    test "deletes the user's bookmarks and tags but keeps the login", %{conn: conn, user: user} do
+      conn =
+        empty_account(conn, %{
+          "current_password" => valid_user_password(),
+          "confirm_email" => " #{user.email} "
+        })
+
+      assert redirected_to(conn) == Routes.user_settings_path(conn, :edit)
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) ==
+               "Emptied account: 1 bookmarks and 1 tags deleted."
+
+      assert Bookmarks.count_user_sites(user.id) == 0
+      assert Bookmarks.list_user_tags(user.id) == []
+      assert Accounts.get_user_by_email_and_password(user.email, valid_user_password())
+    end
+
+    test "refuses with the wrong password", %{conn: conn, user: user} do
+      conn = empty_account(conn, %{"current_password" => "nope", "confirm_email" => user.email})
+
+      assert redirected_to(conn) == Routes.user_settings_path(conn, :edit)
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Wrong password."
+      assert Bookmarks.count_user_sites(user.id) == 1
+    end
+
+    test "refuses when the confirmation email doesn't match", %{conn: conn, user: user} do
+      conn =
+        empty_account(conn, %{
+          "current_password" => valid_user_password(),
+          "confirm_email" => "someone-else@example.com"
+        })
+
+      assert redirected_to(conn) == Routes.user_settings_path(conn, :edit)
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Confirmation email didn't match."
+      assert Bookmarks.count_user_sites(user.id) == 1
+    end
+  end
+
+  describe "PUT /users/settings (deactivate account form)" do
+    defp deactivate(conn, params) do
+      put(
+        conn,
+        Routes.user_settings_path(conn, :update),
+        Map.put(params, "action", "deactivate_account")
+      )
+    end
+
+    test "deletes the user and their data and logs out", %{conn: conn, user: user} do
+      {:ok, site} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/mine",
+          "created_by_id" => user.id,
+          "tags" => []
+        })
+
+      conn =
+        deactivate(conn, %{
+          "current_password" => valid_user_password(),
+          "confirm_email" => user.email
+        })
+
+      assert redirected_to(conn) == "/"
+      refute get_session(conn, :user_token)
+      refute Accounts.get_user_by_email(user.email)
+      refute Bookmarks.get_site(site.id)
+    end
+
+    test "leaves other users alone", %{conn: conn, user: user} do
+      other = user_fixture()
+
+      {:ok, theirs} =
+        Bookmarks.create_site(%{
+          "url" => "https://example.com/theirs",
+          "created_by_id" => other.id,
+          "tags" => []
+        })
+
+      deactivate(conn, %{
+        "current_password" => valid_user_password(),
+        "confirm_email" => user.email
+      })
+
+      assert Accounts.get_user_by_email(other.email)
+      assert Bookmarks.get_site(theirs.id)
+    end
+
+    test "refuses with the wrong password", %{conn: conn, user: user} do
+      conn = deactivate(conn, %{"current_password" => "nope", "confirm_email" => user.email})
+
+      assert redirected_to(conn) == Routes.user_settings_path(conn, :edit)
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Wrong password."
+      assert Accounts.get_user_by_email(user.email)
+    end
+
+    test "refuses when the confirmation email doesn't match", %{conn: conn, user: user} do
+      conn =
+        deactivate(conn, %{
+          "current_password" => valid_user_password(),
+          "confirm_email" => ""
+        })
+
+      assert redirected_to(conn) == Routes.user_settings_path(conn, :edit)
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Confirmation email didn't match."
+      assert Accounts.get_user_by_email(user.email)
     end
   end
 end

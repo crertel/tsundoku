@@ -37,6 +37,14 @@ defmodule Tsundoku.MetadataEnrichTest do
     Repo.get!(Site, site.id)
   end
 
+  # A port nothing is listening on: bind one, note it, and close it.
+  defp closed_port do
+    {:ok, socket} = :gen_tcp.listen(0, [])
+    {:ok, port} = :inet.port(socket)
+    :ok = :gen_tcp.close(socket)
+    port
+  end
+
   describe "fetch_html/1" do
     test "returns the body of an html page", %{base: base} do
       assert {:ok, html} = Metadata.fetch_html(base <> "/page")
@@ -133,6 +141,39 @@ defmodule Tsundoku.MetadataEnrichTest do
 
       assert {:ok, enriched} = Metadata.enrich(site)
       assert enriched.crawl_status == "not_html"
+    end
+
+    test "records server errors by status", %{base: base, user: user} do
+      site = site_fixture(user, base <> "/broken")
+
+      assert {:ok, enriched} = Metadata.enrich(site)
+      assert enriched.crawl_status == "http_500"
+    end
+
+    test "records a timeout when the page doesn't answer in time", %{base: base, user: user} do
+      site = site_fixture(user, base <> "/slow", %{"display_name" => "Slow"})
+
+      assert {:ok, enriched} = Metadata.enrich(site)
+
+      assert enriched.crawl_status == "timeout"
+      assert %DateTime{} = enriched.crawled_at
+      assert enriched.display_name == "Slow"
+    end
+
+    test "records a network error when nothing is listening", %{user: user} do
+      site = site_fixture(user, "http://localhost:#{closed_port()}/")
+
+      assert {:ok, enriched} = Metadata.enrich(site)
+      assert enriched.crawl_status == "network_error"
+    end
+
+    test "assumes an .ico when the favicon has no content type", %{base: base, user: user} do
+      site = site_fixture(user, base <> "/untyped-icon-page")
+
+      assert {:ok, enriched} = Metadata.enrich(site)
+
+      assert enriched.favicon_data == MetadataServer.png()
+      assert enriched.favicon_content_type == "image/x-icon"
     end
   end
 
