@@ -889,7 +889,8 @@ defmodule Tsundoku.Bookmarks do
     |> Enum.join(" ")
   end
 
-  defp bare_token?(token), do: not Regex.match?(~r/^-?(?:tag|domain|site|url|title):/, token)
+  defp bare_token?(token),
+    do: not Regex.match?(~r/^-?(?:tag|domain|site|url|title|metadata|status):/, token)
 
   defp bare_phrase_of(tokens) do
     tokens
