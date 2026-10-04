@@ -1,6 +1,7 @@
 defmodule TsundokuWeb.TagLiveTest do
   use TsundokuWeb.ConnCase
 
+  import Ecto.Query, only: [from: 2]
   import Phoenix.LiveViewTest
 
   alias Tsundoku.Bookmarks
@@ -163,5 +164,175 @@ defmodule TsundokuWeb.TagLiveTest do
       assert html =~ "Tag updated successfully"
       assert html =~ "some updated name"
     end
+
+    test "shows the description, bookmark count, and co-occurring tags", %{conn: conn, user: user} do
+      {:ok, tag} =
+        Bookmarks.create_tag(%{
+          name: "elixir",
+          description: "the language",
+          created_by_id: user.id
+        })
+
+      {:ok, web} = Bookmarks.create_tag(%{name: "web", created_by_id: user.id})
+      site_fixture(user, [tag, web])
+      site_fixture(user, [tag])
+
+      conn = log_in_user(conn, user)
+      {:ok, show_live, html} = live(conn, Routes.tag_show_path(conn, :show, tag))
+
+      assert html =~ "the language"
+      assert html =~ "Often appears with"
+      assert has_element?(show_live, ~s(a[href="/sites?q=tag%3Aelixir"]), "2")
+      assert has_element?(show_live, ~s(a[href="/sites?q=tag%3Aelixir+tag%3Aweb"]), "web")
+      assert has_element?(show_live, "button", "Delete 2 bookmarks")
+    end
+
+    test "hides the stats sections for an unused tag", %{conn: conn, tag: tag, user: user} do
+      conn = log_in_user(conn, user)
+      {:ok, _show_live, html} = live(conn, Routes.tag_show_path(conn, :show, tag))
+
+      assert html =~ "0"
+      refute html =~ "Often appears with"
+      refute html =~ "Saves over time"
+      refute html =~ "Delete all bookmarks with this tag"
+      assert html =~ "No other tags to merge into."
+    end
+
+    test "draws a sparkline once saves span more than one month", %{
+      conn: conn,
+      tag: tag,
+      user: user
+    } do
+      january = site_fixture(user, [tag])
+      april = site_fixture(user, [tag])
+      set_inserted_at(january, ~U[2026-01-15 12:00:00.000000Z])
+      set_inserted_at(april, ~U[2026-04-15 12:00:00.000000Z])
+
+      conn = log_in_user(conn, user)
+      {:ok, show_live, html} = live(conn, Routes.tag_show_path(conn, :show, tag))
+
+      assert html =~ "Saves over time"
+      assert html =~ "Jan 2026"
+      assert html =~ "Apr 2026"
+
+      # Four months (Jan through Apr, gaps filled with zero) give four points.
+      points = show_live |> element("polyline") |> render()
+      assert [_, coords] = Regex.run(~r/points="([^"]*)"/, points)
+      assert length(String.split(coords, " ")) == 4
+    end
+
+    test "omits the sparkline when every save is in the same month", %{
+      conn: conn,
+      tag: tag,
+      user: user
+    } do
+      site_fixture(user, [tag])
+      site_fixture(user, [tag])
+
+      conn = log_in_user(conn, user)
+      {:ok, _show_live, html} = live(conn, Routes.tag_show_path(conn, :show, tag))
+
+      refute html =~ "Saves over time"
+      assert html =~ "Delete 2 bookmarks"
+    end
+
+    test "deleting tagged bookmarks requires typing the tag name", %{
+      conn: conn,
+      tag: tag,
+      user: user
+    } do
+      site_fixture(user, [tag])
+      untagged = site_fixture(user, [])
+
+      conn = log_in_user(conn, user)
+      {:ok, show_live, html} = live(conn, Routes.tag_show_path(conn, :show, tag))
+      assert html =~ "Delete 1 bookmark"
+
+      html =
+        show_live
+        |> form(~s(form[phx-submit="delete_tagged_sites"]), confirm: %{name: "wrong"})
+        |> render_submit()
+
+      assert html =~ "Nothing deleted"
+      assert Bookmarks.count_sites_for_tag(tag) == 1
+
+      html =
+        show_live
+        |> form(~s(form[phx-submit="delete_tagged_sites"]), confirm: %{name: " some name "})
+        |> render_submit()
+
+      assert html =~ "Deleted 1 bookmark(s)"
+      refute html =~ "Delete all bookmarks with this tag"
+      assert Bookmarks.count_sites_for_tag(tag) == 0
+      assert Bookmarks.get_site(untagged.id)
+      assert Bookmarks.get_tag(tag.id)
+    end
+
+    test "merges the tag into another and returns to the tag list", %{
+      conn: conn,
+      tag: tag,
+      user: user
+    } do
+      {:ok, dest} = Bookmarks.create_tag(%{name: "destination", created_by_id: user.id})
+      site = site_fixture(user, [tag])
+
+      conn = log_in_user(conn, user)
+      {:ok, show_live, _html} = live(conn, Routes.tag_show_path(conn, :show, tag))
+
+      {:ok, _, html} =
+        show_live
+        |> form(~s(form[phx-submit="merge"]), merge: %{dest_name: " destination "})
+        |> render_submit()
+        |> follow_redirect(conn, Routes.tag_index_path(conn, :index))
+
+      assert html =~ "1 bookmark(s) moved"
+      assert Bookmarks.get_tag(tag.id) == nil
+      assert Bookmarks.count_sites_for_tag(dest) == 1
+      assert Bookmarks.get_site(site.id)
+    end
+
+    test "refuses to merge into an unknown tag or into itself", %{
+      conn: conn,
+      tag: tag,
+      user: user
+    } do
+      {:ok, _other} = Bookmarks.create_tag(%{name: "other", created_by_id: user.id})
+
+      conn = log_in_user(conn, user)
+      {:ok, show_live, _html} = live(conn, Routes.tag_show_path(conn, :show, tag))
+
+      html =
+        show_live
+        |> form(~s(form[phx-submit="merge"]), merge: %{dest_name: "nope"})
+        |> render_submit()
+
+      assert html =~ "No tag named"
+      assert html =~ ~s(value="nope")
+
+      html =
+        show_live
+        |> form(~s(form[phx-submit="merge"]), merge: %{dest_name: "some name"})
+        |> render_submit()
+
+      assert html =~ "merge a tag into itself"
+      assert Bookmarks.get_tag(tag.id)
+    end
+  end
+
+  defp site_fixture(user, tags) do
+    {:ok, site} =
+      Bookmarks.create_site(%{
+        "url" => "https://example.com/#{System.unique_integer([:positive])}",
+        "created_by_id" => user.id,
+        "tags" => tags
+      })
+
+    site
+  end
+
+  defp set_inserted_at(site, at) do
+    Tsundoku.Repo.update_all(from(s in Tsundoku.Bookmarks.Site, where: s.id == ^site.id),
+      set: [inserted_at: at]
+    )
   end
 end

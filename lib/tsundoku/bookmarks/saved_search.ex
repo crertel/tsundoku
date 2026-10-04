@@ -22,6 +22,7 @@ defmodule Tsundoku.Bookmarks.SavedSearch do
     |> validate_length(:name, max: 100)
     |> unique_constraint([:created_by_id, :name],
       name: :saved_search_name_per_user_index,
+      error_key: :name,
       message: "you already have a saved search with this name"
     )
   end
